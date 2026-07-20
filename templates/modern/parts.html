@@ -1,0 +1,128 @@
+{% extends "modern/base.html" %}
+{% block title %}قطعات | BOM Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>مدیریت قطعات</h1>
+    <div class="header-actions">
+        <div class="search-box">
+            <input type="text" id="part-search" placeholder="جستجوی قطعه..." onkeyup="filterParts()">
+        </div>
+    </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 20px;">
+    <div class="stat-card stat-blue">
+        <div class="stat-value" id="total-parts">-</div>
+        <div class="stat-label">کل قطعات</div>
+    </div>
+    <div class="stat-card stat-green">
+        <div class="stat-value" id="completed-parts">-</div>
+        <div class="stat-label">موجودی کافی</div>
+    </div>
+    <div class="stat-card stat-red">
+        <div class="stat-value" id="shortage-parts">-</div>
+        <div class="stat-label">کسری انبار</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="data-table" id="parts-table">
+            <thead>
+                <tr>
+                    <th>نام قطعه</th>
+                    <th>کد فنی</th>
+                    <th>نوع</th>
+                    <th>موجودی</th>
+                    <th>نیاز</th>
+                    <th>وضعیت</th>
+                    <th>تأمین‌کننده</th>
+                    <th>هزینه برآوردی</th>
+                    <th>هزینه واقعی</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody id="parts-tbody">
+                <tr><td colspan="10" class="loading-row">در حال بارگذاری...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+var allParts = [];
+
+function loadAllParts() {
+    $.getJSON('/api/v2/dashboard', function(res) {
+        if (!res.success) return;
+    });
+    $.getJSON('/api/v2/products', function(res) {
+        if (!res.success) return;
+        var promises = [];
+        res.data.forEach(function(p) {
+            promises.push($.getJSON('/api/v2/products/' + p.id + '/assemblies').then(function(aRes) {
+                var parts = [];
+                function collect(assemblies) {
+                    assemblies.forEach(function(a) {
+                        if (a.parts) a.parts.forEach(function(pr) { pr.product_name = p.name; parts.push(pr); });
+                        if (a.children) collect(a.children);
+                    });
+                }
+                if (aRes.data) collect(aRes.data);
+                return parts;
+            }));
+        });
+        Promise.all(promises).then(function(results) {
+            allParts = results.flat();
+            renderParts(allParts);
+        });
+    });
+}
+
+function renderParts(parts) {
+    var tbody = $('#parts-tbody');
+    tbody.empty();
+    var total = parts.length, completed = 0, shortage = 0;
+    if (parts.length === 0) {
+        tbody.append('<tr><td colspan="10" class="empty-row">هیچ قطعه‌ای یافت نشد</td></tr>');
+        return;
+    }
+    parts.forEach(function(p) {
+        var qty = p.quantity || 0;
+        var req = p.required_quantity || 1;
+        var isEnough = qty >= req;
+        var isPartial = qty > 0 && qty < req;
+        if (isEnough) completed++; else shortage++;
+        var statusIcon = isEnough ? '&#128994;' : (isPartial ? '&#128993;' : '&#128308;');
+        var statusText = isEnough ? 'کافی' : (isPartial ? 'ناقص' : 'کسری');
+        tbody.append('<tr class="' + (isEnough ? '' : 'row-warning') + '">'
+            + '<td><strong>' + p.name + '</strong><br><small style="color:#888">' + (p.product_name || '') + '</small></td>'
+            + '<td>' + (p.part_code || '-') + '</td>'
+            + '<td>' + (p.part_type === 'make' ? 'ساختنی' : (p.part_type === 'buy' ? 'خریدنی' : '-')) + '</td>'
+            + '<td>' + qty + '</td>'
+            + '<td>' + req + '</td>'
+            + '<td><span class="badge badge-' + (isEnough ? 'completed' : (isPartial ? 'in_progress' : 'not_started')) + '">' + statusIcon + ' ' + statusText + '</span></td>'
+            + '<td>' + (p.supplier || '-') + '</td>'
+            + '<td>-</td>'
+            + '<td>-</td>'
+            + '<td><button class="btn btn-xs btn-outline" onclick="showPartDetail(' + JSON.stringify(p).replace(/"/g, "'") + ')">&#128065;</button></td>'
+            + '</tr>');
+    });
+    $('#total-parts').text(total);
+    $('#completed-parts').text(completed);
+    $('#shortage-parts').text(shortage);
+}
+
+function filterParts() {
+    var q = $('#part-search').val().toLowerCase();
+    if (!q) { renderParts(allParts); return; }
+    renderParts(allParts.filter(function(p) { return p.name.toLowerCase().includes(q) || (p.part_code || '').toLowerCase().includes(q); }));
+}
+
+function showPartDetail(p) { alert('نام: ' + p.name + '\nکد: ' + (p.part_code || '-') + '\nموجودی: ' + (p.quantity || 0) + '\nنیاز: ' + (p.required_quantity || 1) + '\nتأمین‌کننده: ' + (p.supplier || '-')); }
+
+$(document).ready(loadAllParts);
+</script>
+{% endblock %}

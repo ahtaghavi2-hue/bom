@@ -1,0 +1,137 @@
+{% extends "modern/base.html" %}
+{% block title %}داشبورد | BOM Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>داشبورد</h1>
+    <div class="header-actions">
+        <button class="btn btn-outline" onclick="location.reload()">&#8635; بروزرسانی</button>
+    </div>
+</div>
+
+<div class="stats-grid" id="stats-grid">
+    <div class="stat-card stat-blue">
+        <div class="stat-value" id="stat-products">-</div>
+        <div class="stat-label">محصولات</div>
+    </div>
+    <div class="stat-card stat-green">
+        <div class="stat-value" id="stat-parts">-</div>
+        <div class="stat-label">قطعات</div>
+    </div>
+    <div class="stat-card stat-orange">
+        <div class="stat-value" id="stat-schedules">-</div>
+        <div class="stat-label">برنامه فعال</div>
+    </div>
+    <div class="stat-card stat-red">
+        <div class="stat-value" id="stat-low-stock">-</div>
+        <div class="stat-label">کسری انبار</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>پیشرفت ساخت</h3>
+        </div>
+        <div class="card-body">
+            <div class="progress-ring-container">
+                <svg class="progress-ring" width="200" height="200" viewBox="0 0 200 200">
+                    <circle class="progress-ring-bg" cx="100" cy="100" r="85" fill="none" stroke="#eee" stroke-width="12"/>
+                    <circle class="progress-ring-fill" id="progress-ring-fill" cx="100" cy="100" r="85" fill="none" stroke="#4CAF50" stroke-width="12"
+                        stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534"/>
+                    <text x="100" y="95" text-anchor="middle" class="progress-ring-pct" id="progress-pct">0%</text>
+                    <text x="100" y="120" text-anchor="middle" class="progress-ring-label">تکمیل شده</text>
+                </svg>
+            </div>
+            <div class="progress-stats">
+                <span id="stages-done">0</span> / <span id="stages-total">0</span> مرحله
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>هزینه‌ها</h3>
+        </div>
+        <div class="card-body">
+            <div class="cost-summary">
+                <div class="cost-item">
+                    <span class="cost-label">برآوردی</span>
+                    <span class="cost-value" id="cost-estimated">-</span>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-label">واقعی</span>
+                    <span class="cost-value" id="cost-actual">-</span>
+                </div>
+                <div class="cost-divider"></div>
+                <div class="cost-item cost-diff" id="cost-diff-container">
+                    <span class="cost-label" id="cost-diff-label">تفاوت</span>
+                    <span class="cost-value" id="cost-diff">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>آخرین برنامه‌های تولید</h3>
+    </div>
+    <div class="card-body">
+        <table class="data-table" id="recent-schedules">
+            <thead>
+                <tr>
+                    <th>محصول</th>
+                    <th>تعداد</th>
+                    <th>وضعیت</th>
+                    <th>اولویت</th>
+                    <th>تاریخ شروع</th>
+                    <th>تاریخ پایان</th>
+                </tr>
+            </thead>
+            <tbody id="schedules-tbody">
+                <tr><td colspan="6" class="loading-row">در حال بارگذاری...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    $.getJSON('/api/v2/dashboard', function(res) {
+        if (!res.success) return;
+        var d = res.data;
+        $('#stat-products').text(d.total_products);
+        $('#stat-parts').text(d.total_parts);
+        $('#stat-schedules').text(d.active_schedules);
+        $('#stat-low-stock').text(d.low_stock_parts);
+        $('#stages-done').text(d.stages_completed);
+        $('#stages-total').text(d.stages_total);
+
+        var pct = d.progress_percent || 0;
+        $('#progress-pct').text(pct + '%');
+        var circumference = 534;
+        var offset = circumference - (pct / 100) * circumference;
+        $('#progress-ring-fill').attr('stroke-dashoffset', offset);
+
+        $('#cost-estimated').text(d.total_estimated_cost.toLocaleString());
+        $('#cost-actual').text(d.total_actual_cost.toLocaleString());
+        var diff = d.total_actual_cost - d.total_estimated_cost;
+        $('#cost-diff').text((diff >= 0 ? '+' : '') + diff.toLocaleString());
+        $('#cost-diff-container').css('color', diff > 0 ? '#e74c3c' : '#4CAF50');
+
+        var tbody = $('#schedules-tbody');
+        tbody.empty();
+        if (d.recent_schedules.length === 0) {
+            tbody.append('<tr><td colspan="6" class="empty-row">هیچ برنامه‌ای ثبت نشده است</td></tr>');
+        } else {
+            d.recent_schedules.forEach(function(s) {
+                var statusMap = { planned: 'برنامه‌ریزی شده', in_progress: 'در حال اجرا', completed: 'تکمیل شده', cancelled: 'لغو شده' };
+                tbody.append('<tr><td>' + (s.product_name || 'Product #' + s.product_id) + '</td><td>' + s.quantity + '</td><td><span class="badge badge-' + s.status + '">' + (statusMap[s.status] || s.status) + '</span></td><td>' + s.priority + '</td><td>' + (s.start_date ? new Date(s.start_date).toLocaleDateString('fa-IR') : '-') + '</td><td>' + (s.end_date ? new Date(s.end_date).toLocaleDateString('fa-IR') : '-') + '</td></tr>');
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

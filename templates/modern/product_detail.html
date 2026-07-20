@@ -1,0 +1,124 @@
+{% extends "modern/base.html" %}
+{% block title %}{{ product.name }} | BOM Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>{{ product.name }}</h1>
+    <div class="header-actions">
+        <button class="btn btn-outline" onclick="location.href='/modern/products'">&#8594; بازگشت</button>
+    </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="stat-card stat-blue">
+        <div class="stat-value">{{ product.order_count or 0 }}</div>
+        <div class="stat-label">تعداد سفارش</div>
+    </div>
+    <div class="stat-card stat-green" id="assembly-count-card">
+        <div class="stat-value" id="assembly-count">-</div>
+        <div class="stat-label">زیرمجموعه‌ها</div>
+    </div>
+    <div class="stat-card stat-orange" id="part-count-card">
+        <div class="stat-value" id="part-count">-</div>
+        <div class="stat-label">قطعات</div>
+    </div>
+    <div class="stat-card stat-red" id="low-stock-card">
+        <div class="stat-value" id="low-stock-parts">-</div>
+        <div class="stat-label">کسری انبار</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>ساختار محصول</h3>
+        <button class="btn btn-sm btn-primary" onclick="showAddAssemblyModal()">+ افزودن زیرمجموعه</button>
+    </div>
+    <div class="card-body">
+        <div id="product-tree"></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>برنامه‌های تولید</h3>
+        <button class="btn btn-sm btn-primary" onclick="showAddScheduleModal()">+ برنامه جدید</button>
+    </div>
+    <div class="card-body">
+        <table class="data-table">
+            <thead><tr><th>تعداد</th><th>وضعیت</th><th>اولویت</th><th>تاریخ شروع</th><th>تاریخ پایان</th></tr></thead>
+            <tbody id="schedule-tbody"><tr><td colspan="5" class="loading-row">در حال بارگذاری...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+var PRODUCT_ID = {{ product.id }};
+function loadAssemblies() {
+    $.getJSON('/api/v2/products/' + PRODUCT_ID + '/assemblies', function(res) {
+        if (!res.success) return;
+        var container = $('#product-tree');
+        container.empty();
+        if (res.data.length === 0) {
+            container.html('<p class="empty-state">هنوز زیرمجموعه‌ای تعریف نشده است</p>');
+            $('#assembly-count').text(0);
+            $('#part-count').text(0);
+            $('#low-stock-parts').text(0);
+            return;
+        }
+        var totalParts = 0, lowStock = 0, assembliesCount = 0;
+        function renderTree(nodes, level) {
+            var html = '<ul class="tree-list">';
+            nodes.forEach(function(n) {
+                assembliesCount++;
+                html += '<li class="tree-item" style="padding-right:' + (level * 24) + 'px">';
+                html += '<div class="tree-node assembly-node"><span class="tree-toggle" onclick="$(this).parent().siblings(\'ul\').toggle()">&#9660;</span> <strong>' + n.name + '</strong> <span class="tree-meta">(زیرمجموعه)</span>';
+                html += '<button class="btn btn-xs btn-outline" onclick="showAddPartModal(' + n.id + ')">+ قطعه</button></div>';
+                if (n.parts && n.parts.length > 0) {
+                    html += '<ul class="tree-list">';
+                    n.parts.forEach(function(p) {
+                        totalParts++;
+                        if ((p.quantity || 0) < (p.required_quantity || 1)) lowStock++;
+                        var statusIcon = (p.quantity || 0) >= (p.required_quantity || 1) ? '&#128994;' : ((p.quantity || 0) > 0 ? '&#128993;' : '&#128308;');
+                        html += '<li class="tree-item" style="padding-right:' + ((level+1) * 24) + 'px"><div class="tree-node part-node"><span class="part-status-icon">' + statusIcon + '</span> ' + p.name + ' <span class="tree-meta">(' + (p.part_code || 'بدون کد') + ' | موجودی: ' + (p.quantity || 0) + '/' + (p.required_quantity || 1) + ')</span></div></li>';
+                    });
+                    html += '</ul>';
+                }
+                if (n.children && n.children.length > 0) {
+                    html += renderTree(n.children, level + 1);
+                }
+                html += '</li>';
+            });
+            html += '</ul>';
+            return html;
+        }
+        container.html(renderTree(res.data, 0));
+        $('#assembly-count').text(assembliesCount);
+        $('#part-count').text(totalParts);
+        $('#low-stock-parts').text(lowStock);
+    });
+}
+
+function loadSchedules() {
+    $.getJSON('/api/v2/schedules', function(res) {
+        if (!res.success) return;
+        var tbody = $('#schedule-tbody');
+        tbody.empty();
+        var filtered = res.data.filter(function(s) { return s.product_id === PRODUCT_ID; });
+        if (filtered.length === 0) {
+            tbody.append('<tr><td colspan="5" class="empty-row">برنامه‌ای ثبت نشده است</td></tr>');
+            return;
+        }
+        var statusMap = { planned: 'برنامه‌ریزی شده', in_progress: 'در حال اجرا', completed: 'تکمیل شده', cancelled: 'لغو شده' };
+        filtered.forEach(function(s) {
+            tbody.append('<tr><td>' + s.quantity + '</td><td><span class="badge badge-' + s.status + '">' + (statusMap[s.status] || s.status) + '</span></td><td>' + s.priority + '</td><td>' + (s.start_date ? new Date(s.start_date).toLocaleDateString('fa-IR') : '-') + '</td><td>' + (s.end_date ? new Date(s.end_date).toLocaleDateString('fa-IR') : '-') + '</td></tr>');
+        });
+    });
+}
+
+$(document).ready(function() {
+    loadAssemblies();
+    loadSchedules();
+});
+</script>
+{% endblock %}

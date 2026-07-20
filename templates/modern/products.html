@@ -1,0 +1,95 @@
+{% extends "modern/base.html" %}
+{% block title %}محصولات | BOM Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>محصولات</h1>
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="showAddProductModal()">+ محصول جدید</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="data-table" id="products-table">
+            <thead>
+                <tr>
+                    <th>نام محصول</th>
+                    <th>کد</th>
+                    <th>تعداد سفارش</th>
+                    <th>تعداد زیرمجموعه</th>
+                    <th>وضعیت</th>
+                    <th>تاریخ ایجاد</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody id="products-tbody">
+                <tr><td colspan="7" class="loading-row">در حال بارگذاری...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="add-product-modal" style="display:none;">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>محصول جدید</h3>
+            <button class="modal-close" onclick="closeModal('add-product-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>نام محصول</label>
+                <input type="text" id="new-product-name" placeholder="نام محصول">
+            </div>
+            <div class="form-group">
+                <label>کد محصول</label>
+                <input type="text" id="new-product-code" placeholder="کد فنی">
+            </div>
+            <div class="form-group">
+                <label>توضیحات</label>
+                <textarea id="new-product-desc" rows="3"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="createProduct()">ایجاد محصول</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function loadProducts() {
+    $.getJSON('/api/v2/products', function(res) {
+        if (!res.success) return;
+        var tbody = $('#products-tbody');
+        tbody.empty();
+        if (res.data.length === 0) {
+            tbody.append('<tr><td colspan="7" class="empty-row">هیچ محصولی ثبت نشده است</td></tr>');
+            return;
+        }
+        res.data.forEach(function(p) {
+            var statusMap = { active: 'فعال', inactive: 'غیرفعال', archived: 'بایگانی' };
+            tbody.append('<tr><td><a href="/modern/products/' + p.id + '" class="link">' + p.name + '</a></td><td>' + (p.code || '-') + '</td><td>' + (p.order_count || 0) + '</td><td>-</td><td><span class="badge badge-' + p.status + '">' + (statusMap[p.status] || p.status) + '</span></td><td>' + new Date(p.created_at).toLocaleDateString('fa-IR') + '</td><td><button class="btn btn-sm btn-outline" onclick="location.href=\'/modern/products/' + p.id + '\'">&#128065; مشاهده</button></td></tr>');
+        });
+    });
+}
+
+function showAddProductModal() {
+    $('#add-product-modal').fadeIn(200);
+}
+function closeModal(id) { $('#' + id).fadeOut(200); }
+function createProduct() {
+    var name = $('#new-product-name').val().trim();
+    if (!name) { alert('نام محصول را وارد کنید'); return; }
+    $.ajax({
+        url: '/api/v2/products', method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ name: name, code: $('#new-product-code').val(), description: $('#new-product-desc').val() }),
+        success: function() {
+            closeModal('add-product-modal');
+            $('#new-product-name').val(''); $('#new-product-code').val(''); $('#new-product-desc').val('');
+            loadProducts();
+        }
+    });
+}
+$(document).ready(loadProducts);
+</script>
+{% endblock %}

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>سیستم مدیریت BOM و تولید</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+</head>
+<body>
+    <!-- هدر با کنترل‌های اصلی -->
+    <header class="app-header">
+        <div class="header-right">
+            <h1 class="app-title">🏭 سیستم مدیریت ساخت محصول</h1>
+        </div>
+        <div class="header-left">
+            <span style="color:rgba(255,255,255,0.7);font-size:13px;">{{ current_user.username }}</span>
+            <button class="header-btn" onclick="toggleTheme()" id="theme-toggle" title="تغییر تم">🌙</button>
+            <button class="header-btn notification-btn" onclick="toggleNotifications()" id="notif-btn">
+                 <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+            </button>
+            <a href="{{ url_for('settings_page') }}" class="header-btn" style="text-decoration:none;font-size:13px;">⚙ تنظیمات</a>
+            <a href="{{ url_for('logout_page') }}" class="header-btn" style="text-decoration:none;font-size:13px;">🚪 خروج</a>
+        </div>
+    </header>
+
+    <!-- پنل اعلان‌ها -->
+    <div class="notification-panel" id="notification-panel" style="display:none;">
+        <div class="notif-header">
+            <h3>🔔 مرکز اعلان‌ها</h3>
+            <button onclick="toggleNotifications()" class="close-btn">✕</button>
+        </div>
+        <div class="notif-content">
+            <div class="notif-section">
+                <h4>🔴 کسری انبار (<span id="shortage-count">0</span>)</h4>
+                <div id="shortage-list" class="notif-list"></div>
+            </div>
+            <div class="notif-section">
+                <h4>🟡 در حال ساخت (<span id="progress-count">0</span>)</h4>
+                <div id="progress-list" class="notif-list"></div>
+            </div>
+            <div class="notif-section">
+                <h4>📦 سفارش‌های در انتظار (<span id="order-count-notif">0</span>)</h4>
+                <div id="order-list" class="notif-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="layout">
+            <!-- پنل درخت -->
+            <div class="tree-panel" id="tree-panel">
+                <div class="panel-header">
+                    <h3>ساختار محصول</h3>
+                    <button class="collapse-btn" onclick="togglePanel('tree')" title="جمع کردن پنل">◀</button>
+                </div>
+                <div class="panel-content" id="tree-panel-content">
+                    <div class="tree-actions">
+                        <button onclick="addRootProduct()" class="btn-primary">➕ محصول جدید</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="tree-search" placeholder="جستجوی نام یا کد فنی..." onkeyup="searchTree(this.value)">
+                    </div>
+                    <div class="view-toggle">
+                        <button class="view-btn active" onclick="switchMainView('tree')" id="btn-view-tree"> درختی</button>
+                        <button class="view-btn" onclick="switchMainView('kanban')" id="btn-view-kanban"> کانبان</button>
+                    </div>
+                    <div class="export-buttons">
+                        <button onclick="exportExcel()" class="btn-export btn-excel">📊 Excel</button>
+                        <button onclick="exportSchematic()" class="btn-export btn-schematic">📐 شماتیک</button>
+                    </div>
+                    <div id="tree-container"></div>
+                    <div id="kanban-container" style="display:none;"></div>
+                </div>
+            </div>
+
+            <!-- پنل ویرایش -->
+            <div class="edit-panel" id="edit-panel">
+                <div class="panel-header">
+                    <h3>جزئیات</h3>
+                    <button class="collapse-btn" onclick="togglePanel('edit')" title="جمع کردن پنل">▶</button>
+                </div>
+                <div class="panel-content" id="edit-panel-content">
+                    <!-- Breadcrumbs -->
+                    <div class="breadcrumbs" id="breadcrumbs" style="display:none;"></div>
+
+                    <div id="dashboard-summary" class="dashboard-summary" style="display:none;">
+                        <div class="stat-box stat-total"><span id="stat-total">0</span><small>کل اقلام</small></div>
+                        <div class="stat-box stat-done"><span id="stat-done">0</span><small>ساخته شده</small></div>
+                        <div class="stat-box stat-missing"><span id="stat-missing">0</span><small>کسری انبار</small></div>
+                    </div>
+
+                    <div id="no-selection" class="placeholder">
+                        <p>👈 یک گره از درخت را انتخاب کنید</p>
+                    </div>
+
+                    <div id="edit-form" style="display:none;">
+                        <div class="form-header">
+                            <h3>ویرایش: <span id="current-node" class="node-name"></span></h3>
+                            <div class="node-type-badge" id="node-type-badge"></div>
+                        </div>
+
+                        <div class="tabs">
+                            <button class="tab-btn active" onclick="switchTab('tab-general')"> عمومی</button>
+                            <button class="tab-btn" onclick="switchTab('tab-images')">️ تصاویر</button>
+                            <button class="tab-btn" onclick="switchTab('tab-inventory')">📦 انبار</button>
+                            <button class="tab-btn" id="tab-btn-mfg" onclick="switchTab('tab-mfg')" style="display:none;">⚙️ ساخت</button>
+                            <button class="tab-btn" id="tab-btn-schedule" onclick="switchTab('tab-schedule')" style="display:none;">📅 برنامه تولید</button>
+                            <button class="tab-btn" id="tab-btn-docs" onclick="switchTab('tab-docs')" style="display:none;">📁 مدارک فنی</button>
+                        </div>
+
+                        <div class="tab-content active" id="tab-general">
+                            <div class="form-group">
+                                <label>نام:</label>
+                                <input type="text" id="field-name">
+                            </div>
+                            <div class="form-group">
+                                <label>کد فنی:</label>
+                                <input type="text" id="field-partCode">
+                            </div>
+                            <div class="form-group">
+                                <label>مشخصات فنی:</label>
+                                <textarea id="field-specs" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>توضیحات:</label>
+                                <textarea id="field-notes" rows="3"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-images">
+                            <div class="form-group">
+                                <label>گالری تصاویر:</label>
+                                <div class="gallery-grid" id="image-gallery"></div>
+                                <div class="add-image-box" onclick="document.getElementById('img-upload-multi').click()">
+                                    <span class="plus-icon">+</span>
+                                    <span class="img-label">افزودن عکس جدید</span>
+                                    <input type="file" id="img-upload-multi" accept="image/*" hidden onchange="addImageToGallery(this)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-inventory">
+                            <div class="form-group" id="order-count-group" style="display:none;">
+                                <label>تعداد سفارش ثبت‌شده از بیرون:</label>
+                                <input type="number" id="field-order_count" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>تعداد مورد نیاز برای ساخت یک محصول:</label>
+                                <input type="number" id="field-required_quantity" min="1" value="1">
+                            </div>
+                            <div class="form-group" id="total-required-group" style="display:none;">
+                                <label>تعداد مورد نیاز کل (بر اساس سفارشات):</label>
+                                <input type="number" id="field-total_required" readonly style="background:#f5f5f5; font-weight:bold;">
+                            </div>
+                            <div class="form-group">
+                                <label>موجودی فعلی در انبار:</label>
+                                <input type="number" id="field-quantity" min="0" value="0">
+                            </div>
+                            <div id="shortage-info" style="background:#fff3cd; padding:10px; border-radius:5px; margin-bottom:15px; display:none;">
+                                <strong id="shortage-text"></strong>
+                            </div>
+                            <div class="form-group" id="supplier-group" style="display:none;">
+                                <label>نام تأمین‌کننده / فروشنده:</label>
+                                <input type="text" id="field-supplier" placeholder="مثلاً: شرکت فولاد X">
+                            </div>
+                            <div class="form-group" id="part-email-group">
+                                <label>ایمیل مسئول قطعه (مدیر تولید / تأمین‌کننده):</label>
+                                <div style="display:flex;gap:8px;">
+                                    <input type="email" id="field-supplier-email" placeholder="manager@company.com" style="flex:1;">
+                                    <button onclick="sendPartEmail()" class="btn-small" style="background:#3498db;white-space:nowrap;" title="ارسال ایمیل به مسئول قطعه">✉ ارسال ایمیل</button>
+                                </div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">برای اطلاع از کمبود موجودی یا وضعیت ساخت به این آدرس ایمیل ارسال می‌شود</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-mfg">
+                            <!-- نوار پیشرفت مراحل ساخت -->
+                            <div class="progress-container" id="progress-container" style="display:none;">
+                                <div class="progress-label">
+                                    <span>پیشرفت مراحل ساخت</span>
+                                    <span id="progress-percentage">0%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progress-fill"></div>
+                                </div>
+                                <div class="progress-stats">
+                                    <span id="progress-completed">0 تکمیل شده</span>
+                                    <span id="progress-remaining">0 باقی‌مانده</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>نوع قطعه:</label>
+                                <select id="field-partType" onchange="toggleSupplierField()">
+                                    <option value="">-- انتخاب کنید --</option>
+                                    <option value="buy"> خریدنی</option>
+                                    <option value="make">🔧 ساختنی</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>وضعیت ساخت (خودکار بر اساس موجودی):</label>
+                                <div class="status-tri-toggle">
+                                    <input type="radio" id="status-not-started" name="status" value="not_started" disabled>
+                                    <label for="status-not-started" class="toggle-option toggle-not-started">
+                                        <span class="toggle-icon">🔴</span>
+                                        <span class="toggle-text">کسری موجودی</span>
+                                    </label>
+                                    <input type="radio" id="status-in-progress" name="status" value="in_progress" disabled>
+                                    <label for="status-in-progress" class="toggle-option toggle-in-progress">
+                                        <span class="toggle-icon">🟡</span>
+                                        <span class="toggle-text">موجودی ناقص</span>
+                                    </label>
+                                    <input type="radio" id="status-completed" name="status" value="completed" disabled>
+                                    <label for="status-completed" class="toggle-option toggle-completed">
+                                        <span class="toggle-icon">🟢</span>
+                                        <span class="toggle-text">موجودی کافی</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group" id="cost-summary-group" style="display:none;">
+                                <label>هزینه‌ها:</label>
+                                <div id="cost-summary" style="background:var(--bg-tertiary);padding:10px;border-radius:6px;font-size:13px;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>مراحل ساخت (با هزینه):</label>
+                                <div id="stages-list" class="stages-list-new"></div>
+                                <div class="stage-add">
+                                    <input type="text" id="new-stage-name" list="stage-suggestions" placeholder="نام مرحله">
+                                    <datalist id="stage-suggestions"></datalist>
+                                    <button onclick="addStage()" class="btn-small">➕ افزودن</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-schedule">
+                            <div class="form-group">
+                                <label>برنامه‌های تولید این محصول:</label>
+                                <div id="schedule-list" style="max-height:300px;overflow-y:auto;"></div>
+                                <button onclick="showAddSchedule()" class="btn-small" style="margin-top:8px;background:#3498db;">➕ برنامه جدید</button>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-docs">
+                            <div class="form-group">
+                                <label>مدارک فنی و فایل‌های CAD:</label>
+                                <div id="documents-list" style="max-height:300px;overflow-y:auto;"></div>
+                                <div class="add-image-box" onclick="document.getElementById('doc-upload').click()" style="margin-top:8px;">
+                                    <span class="plus-icon">+</span>
+                                    <span class="img-label">افزودن مدرک فنی (PDF, STEP, DWG, DXF, ...)</span>
+                                    <input type="file" id="doc-upload" accept=".pdf,.step,.stp,.dwg,.dxf,.stl,.sldprt,.sldasm,.iges,.igs,.3dm,.obj,.zip" hidden onchange="uploadDocument(this)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button onclick="saveNode()" class="btn-save">💾 ذخیره تغییرات</button>
+                            <button onclick="deleteNode()" class="btn-delete">️ حذف</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hover Card -->
+    <div class="hover-card" id="hover-card" style="display:none;">
+        <div class="hover-card-img" id="hover-card-img"></div>
+        <div class="hover-card-info">
+            <div class="hover-card-name" id="hover-card-name"></div>
+            <div class="hover-card-code" id="hover-card-code"></div>
+            <div class="hover-card-stock" id="hover-card-stock"></div>
+            <div class="hover-card-status" id="hover-card-status"></div>
+        </div>
+    </div>
+
+    <!-- Inline Edit Modal -->
+    <div class="inline-edit-modal" id="inline-edit-modal" style="display:none;">
+        <div class="inline-edit-content">
+            <h4 id="inline-edit-title">ویرایش سریع</h4>
+            <input type="text" id="inline-edit-input">
+            <div class="inline-edit-actions">
+                <button onclick="confirmInlineEdit()" class="btn-save">تأیید</button>
+                <button onclick="cancelInlineEdit()" class="btn-delete">انصراف</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="image-modal" class="modal" onclick="closeModal()">
+        <span class="modal-close">&times;</span>
+        <img class="modal-content" id="modal-img">
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

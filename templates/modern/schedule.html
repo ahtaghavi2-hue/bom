@@ -1,0 +1,131 @@
+{% extends "modern/base.html" %}
+{% block title %}برنامه تولید | BOM Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>برنامه تولید</h1>
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="showNewSchedule()">+ برنامه جدید</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>برنامه‌های تولید</h3>
+    </div>
+    <div class="card-body">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>محصول</th>
+                    <th>تعداد</th>
+                    <th>وضعیت</th>
+                    <th>اولویت</th>
+                    <th>تاریخ شروع</th>
+                    <th>تاریخ پایان</th>
+                    <th>ایجاد کننده</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody id="schedules-list">
+                <tr><td colspan="8" class="loading-row">در حال بارگذاری...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+    <div class="card-header">
+        <h3>دستورات کار (Work Orders)</h3>
+    </div>
+    <div class="card-body">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>قطعه</th>
+                    <th>برنامه</th>
+                    <th>تعداد</th>
+                    <th>وضعیت</th>
+                    <th>تاریخ سررسید</th>
+                    <th>تاریخ تکمیل</th>
+                </tr>
+            </thead>
+            <tbody id="work-orders-list">
+                <tr><td colspan="6" class="loading-row">در حال بارگذاری...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function loadSchedules() {
+    $.getJSON('/api/v2/schedules', function(res) {
+        if (!res.success) return;
+        var tbody = $('#schedules-list');
+        tbody.empty();
+        var statusMap = { planned: 'برنامه‌ریزی شده', in_progress: 'در حال اجرا', completed: 'تکمیل شده', cancelled: 'لغو شده' };
+        if (res.data.length === 0) {
+            tbody.append('<tr><td colspan="8" class="empty-row">برنامه‌ای ثبت نشده است</td></tr>');
+        } else {
+            res.data.forEach(function(s) {
+                var statusClasses = { planned: 'badge-planned', in_progress: 'badge-in_progress', completed: 'badge-completed', cancelled: 'badge-cancelled' };
+                tbody.append('<tr><td>' + (s.product_name || '#' + s.product_id) + '</td><td>' + s.quantity + '</td><td><span class="badge ' + (statusClasses[s.status] || '') + '">' + (statusMap[s.status] || s.status) + '</span></td><td>' + s.priority + '</td><td>' + (s.start_date ? new Date(s.start_date).toLocaleDateString('fa-IR') : '-') + '</td><td>' + (s.end_date ? new Date(s.end_date).toLocaleDateString('fa-IR') : '-') + '</td><td>#' + (s.created_by || '-') + '</td><td><button class="btn btn-xs btn-outline" onclick="updateScheduleStatus(' + s.id + ')">&#9881; تغییر وضعیت</button></td></tr>');
+            });
+        }
+    });
+}
+
+function loadWorkOrders() {
+    $.getJSON('/api/v2/work-orders', function(res) {
+        if (!res.success) return;
+        var tbody = $('#work-orders-list');
+        tbody.empty();
+        var statusMap = { pending: 'در انتظار', in_progress: 'در حال انجام', completed: 'تکمیل شده', cancelled: 'لغو شده' };
+        if (res.data.length === 0) {
+            tbody.append('<tr><td colspan="6" class="empty-row">دستور کاری ثبت نشده است</td></tr>');
+        } else {
+            res.data.forEach(function(o) {
+                tbody.append('<tr><td>#' + o.part_id + '</td><td>#' + o.schedule_id + '</td><td>' + o.quantity + '</td><td><span class="badge badge-' + o.status + '">' + (statusMap[o.status] || o.status) + '</span></td><td>' + (o.due_date ? new Date(o.due_date).toLocaleDateString('fa-IR') : '-') + '</td><td>' + (o.completed_at ? new Date(o.completed_at).toLocaleDateString('fa-IR') : '-') + '</td></tr>');
+            });
+        }
+    });
+}
+
+function showNewSchedule() {
+    var productId = prompt('شناسه محصول را وارد کنید:');
+    if (!productId || isNaN(productId)) return;
+    var quantity = prompt('تعداد:');
+    if (!quantity || isNaN(quantity)) return;
+    var startDate = prompt('تاریخ شروع (YYYY-MM-DD):');
+    var endDate = prompt('تاریخ پایان (YYYY-MM-DD):');
+    $.ajax({
+        url: '/api/v2/schedules', method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            product_id: parseInt(productId),
+            quantity: parseInt(quantity),
+            start_date: startDate ? startDate + 'T00:00:00' : null,
+            end_date: endDate ? endDate + 'T23:59:59' : null
+        }),
+        success: function() { loadSchedules(); loadWorkOrders(); }
+    });
+}
+
+function updateScheduleStatus(id) {
+    var newStatus = prompt('وضعیت جدید (planned/in_progress/completed/cancelled):');
+    if (!newStatus) return;
+    $.ajax({
+        url: '/api/v2/schedules/' + id, method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ status: newStatus }),
+        success: function() { loadSchedules(); }
+    });
+}
+
+$(document).ready(function() {
+    loadSchedules();
+    loadWorkOrders();
+});
+</script>
+{% endblock %}
