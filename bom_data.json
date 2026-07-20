@@ -1,0 +1,3026 @@
+{
+  "nodes": {
+    "edb538e6": {
+      "id": "edb538e6",
+      "name": "s14",
+      "type": "product",
+      "parent": null,
+      "children": [
+        "f5484700",
+        "d390cee3",
+        "492dbe1c",
+        "273a7ad8",
+        "82995770"
+      ],
+      "notes": "-",
+      "partCode": "s14",
+      "specs": "-",
+      "docLink": "-",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "stages": [],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/17a53980.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 3,
+      "required_quantity": 1
+    },
+    "f5484700": {
+      "id": "f5484700",
+      "name": "ماشین‌کاری",
+      "type": "assembly",
+      "parent": "edb538e6",
+      "children": [
+        "374c417f",
+        "9e598729",
+        "b45ce07a",
+        "757a2ed7",
+        "c83ce36d",
+        "6938f2a9",
+        "39d51bae",
+        "6e23575d",
+        "381200d2",
+        "2dd390cb",
+        "88ea5319",
+        "f4442282",
+        "811ba02b",
+        "bd71a833",
+        "edc0c44f",
+        "37b7df77",
+        "f5e48a7c",
+        "091736d1",
+        "ed6b6c85",
+        "ca38120c",
+        "4c377e07",
+        "454731ac",
+        "1f6135f5",
+        "15d2de4d",
+        "23d28bd5",
+        "df935825",
+        "c8dd2d12"
+      ],
+      "notes": "",
+      "image": "",
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "stages": [],
+      "images": [],
+      "supplier": "",
+      "order_count": 0
+    },
+    "374c417f": {
+      "id": "374c417f",
+      "name": "50263",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50263",
+      "specs": "شفت اتصال لچکی کوچک\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 6,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "required_quantity": 2,
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/d1dacba4.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "9e598729": {
+      "id": "9e598729",
+      "name": "50265",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50265",
+      "specs": "پین داخل شاسی M6\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 238,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "required_quantity": 64,
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/048ee79a.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "b45ce07a": {
+      "id": "b45ce07a",
+      "name": "50266",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50266",
+      "specs": "پین شاسی M8\n",
+      "docLink": "",
+      "partType": "",
+      "status": "in_progress",
+      "quantity": 58,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "required_quantity": 14,
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/5d2d7db3.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "757a2ed7": {
+      "id": "757a2ed7",
+      "name": "50268",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50268",
+      "specs": "شفت لچکی بزرگ\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/917383d7.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "d390cee3": {
+      "id": "d390cee3",
+      "name": "بازاری",
+      "type": "assembly",
+      "parent": "edb538e6",
+      "children": [],
+      "notes": "",
+      "image": "",
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [],
+      "images": [],
+      "supplier": "",
+      "order_count": 0
+    },
+    "492dbe1c": {
+      "id": "492dbe1c",
+      "name": "ورق‌کاری و لیزر",
+      "type": "assembly",
+      "parent": "edb538e6",
+      "children": [
+        "29ccf929",
+        "a95d633b",
+        "47d9abb8",
+        "eefdb010",
+        "f760087d",
+        "fc7a5008",
+        "403964a6",
+        "c16c52f6",
+        "9892aeaf",
+        "04328a5c",
+        "f24ac63d",
+        "4c3b2540",
+        "868b562b",
+        "186c7c32",
+        "cd3480f8",
+        "4d2d0aad",
+        "349eaa72",
+        "e5cfb165",
+        "58de28ae",
+        "99dcd024",
+        "70c176cc",
+        "df6dbe44",
+        "b76335e9",
+        "fe91a83f",
+        "030fc8ed",
+        "69f30306",
+        "49809996",
+        "23b6168a",
+        "4e27ce27",
+        "103bc3b2",
+        "10b883cc"
+      ],
+      "notes": "",
+      "image": "",
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [],
+      "images": [],
+      "supplier": "",
+      "order_count": 0
+    },
+    "c83ce36d": {
+      "id": "c83ce36d",
+      "name": "50269",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50269",
+      "specs": "هیت سینک\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/b894798e.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "273a7ad8": {
+      "id": "273a7ad8",
+      "name": "3D print",
+      "type": "assembly",
+      "parent": "edb538e6",
+      "children": [
+        "e41eb34a",
+        "27802f43",
+        "5888222d",
+        "6116d5a8",
+        "a39be4fe",
+        "fbf29404",
+        "d13223c6",
+        "3de79b08",
+        "b7f43694",
+        "94584400",
+        "3526fbca",
+        "68f0d150",
+        "221128b2",
+        "f0307450"
+      ],
+      "notes": "",
+      "image": "",
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [],
+      "images": [],
+      "supplier": "",
+      "order_count": 0
+    },
+    "6938f2a9": {
+      "id": "6938f2a9",
+      "name": "50273",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50273",
+      "specs": "پایه ی هیت سینک\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 5,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/53ce2508.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "e41eb34a": {
+      "id": "e41eb34a",
+      "name": "50276",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "partCode": "50276",
+      "specs": "پایه ی فن\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 4,
+      "required_quantity": 4,
+      "stages": [
+        {
+          "done": false,
+          "name": "3D PRINT"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/82c0b63a.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "39d51bae": {
+      "id": "39d51bae",
+      "name": "50279",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50279",
+      "specs": "دستگیره کاور\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 4,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "done": false
+        },
+        {
+          "name": "cnc",
+          "done": false
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/9f47c27d.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "27802f43": {
+      "id": "27802f43",
+      "name": "50280",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "partCode": "50280",
+      "specs": "بست سوئیچ\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "done": false,
+          "name": "3D PRINT"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/14ca6cc6.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "5888222d": {
+      "id": "5888222d",
+      "name": "50066",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "قطعه نیاز به اصلاح دارد",
+      "partCode": "50066",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/deafee2c.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "6e23575d": {
+      "id": "6e23575d",
+      "name": "50042-R2",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50042-R2",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "تراش",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        },
+        {
+          "name": "آنودایز",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/84820898.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "381200d2": {
+      "id": "381200d2",
+      "name": "51008",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "51008",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/ee235ffd.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "2dd390cb": {
+      "id": "2dd390cb",
+      "name": "50041-R1",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50041-R1",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "تراش",
+          "status": "not_started"
+        },
+        {
+          "name": "آنودایز",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/9df44bf9.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "88ea5319": {
+      "id": "88ea5319",
+      "name": "50043",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "یکیش آنودایز نشده",
+      "partCode": "50043",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "تراش",
+          "status": "not_started"
+        },
+        {
+          "name": "آنودایز",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/ea0651fb.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "f4442282": {
+      "id": "f4442282",
+      "name": "51006-R1",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "51006-R1",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 6,
+      "required_quantity": 3,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "تراش",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/fd2f9c0e.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "811ba02b": {
+      "id": "811ba02b",
+      "name": "50047-R1",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50047-R1",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "تراش"
+        },
+        {
+          "done": false,
+          "name": "آنودایز"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/f5d2f9bb.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "bd71a833": {
+      "id": "bd71a833",
+      "name": "51009",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "یکی از این دو تا آنودایز هم نشده",
+      "partCode": "51009",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "تراش",
+          "status": "not_started"
+        },
+        {
+          "name": "آنودایز",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/24f54c4f.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "edc0c44f": {
+      "id": "edc0c44f",
+      "name": "51007",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "2 تا آنودایز نشده",
+      "partCode": "51007",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 8,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "تراش"
+        },
+        {
+          "done": false,
+          "name": "آنودایز"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/b0f08095.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "37b7df77": {
+      "id": "37b7df77",
+      "name": "50046-R1",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "partCode": "50046-R1",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "تراش",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/8fb36323.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "10b883cc": {
+      "id": "10b883cc",
+      "name": "50258",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50258",
+      "specs": "\"اتصال شاسی موتور به مقر آنتن و هیت \nسینک\"\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "لیزر"
+        },
+        {
+          "done": false,
+          "name": "رنگ"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/41a897f6.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "29ccf929": {
+      "id": "29ccf929",
+      "name": "50259",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50259",
+      "specs": "شاسی آنتن ها",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "done": false
+        },
+        {
+          "name": "لیزر پروفیل",
+          "done": false
+        },
+        {
+          "name": "جوشکاری",
+          "done": false
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/5d7cee09.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "a95d633b": {
+      "id": "a95d633b",
+      "name": "50261",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50261",
+      "specs": "پایه آنتن عمودی\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "لیزر"
+        },
+        {
+          "done": false,
+          "name": "خمکاری"
+        },
+        {
+          "done": false,
+          "name": "جوشکاری"
+        },
+        {
+          "done": false,
+          "name": "رنگ"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/3dcb6a19.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "47d9abb8": {
+      "id": "47d9abb8",
+      "name": "50260",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50260",
+      "specs": "صفحه اتصال آنتن های اسلات\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/702c877d.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "eefdb010": {
+      "id": "eefdb010",
+      "name": "50262",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50262",
+      "specs": "لچکی شاسی آنتن 1\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 6,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "لیزر"
+        },
+        {
+          "done": false,
+          "name": "رنگ"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/333fc64c.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "f760087d": {
+      "id": "f760087d",
+      "name": "50264",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50264",
+      "specs": "ورق اتصال مقر آنتن ها\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "done": false
+        },
+        {
+          "name": "لیزر",
+          "done": false
+        },
+        {
+          "name": "رنگ",
+          "done": false
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/34ccc822.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "fc7a5008": {
+      "id": "fc7a5008",
+      "name": "50267",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50267",
+      "specs": "لچکی بزرگ مقر آنتن\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 6,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "done": false
+        },
+        {
+          "name": "لیزر",
+          "done": false
+        },
+        {
+          "name": "رنگ",
+          "done": false
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/47a04307.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "403964a6": {
+      "id": "403964a6",
+      "name": "50271",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50271",
+      "specs": "کاور هیت سینک\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [],
+      "images": [
+        {
+          "url": "/uploads/6e40ea9d.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "c16c52f6": {
+      "id": "c16c52f6",
+      "name": "50272",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50272",
+      "specs": "لچکی هیتسینک",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 6,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "لیزر"
+        },
+        {
+          "done": false,
+          "name": "رنگ"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/60d9823b.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "9892aeaf": {
+      "id": "9892aeaf",
+      "name": "50274",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50274",
+      "specs": "درپوش فن چپ\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 6,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "لیزر"
+        },
+        {
+          "done": false,
+          "name": "خمکاری"
+        },
+        {
+          "done": false,
+          "name": "جوشکاری"
+        },
+        {
+          "done": false,
+          "name": "رنگ"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/61892534.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "04328a5c": {
+      "id": "04328a5c",
+      "name": "50275",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50275",
+      "specs": "اتصال فن به هیت سینک\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 12,
+      "required_quantity": 4,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/05711d0d.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "f24ac63d": {
+      "id": "f24ac63d",
+      "name": "50277",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50277",
+      "specs": "کاور فن راست\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 6,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "done": false
+        },
+        {
+          "name": "لیزر",
+          "done": false
+        },
+        {
+          "name": "خمکاری",
+          "done": false
+        },
+        {
+          "name": "جوشکاری",
+          "done": false
+        },
+        {
+          "name": "رنگ",
+          "done": false
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/6c09d0bd.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "4c3b2540": {
+      "id": "4c3b2540",
+      "name": "50278",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50278",
+      "specs": "پوشش کاور\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "done": false
+        },
+        {
+          "name": "لیزر",
+          "done": false
+        },
+        {
+          "name": "خمکاری",
+          "done": false
+        },
+        {
+          "name": "رنگ",
+          "done": false
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/e4f42556.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "868b562b": {
+      "id": "868b562b",
+      "name": "50270",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50270",
+      "specs": "پایه ی هاب سوئیچ\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "لیزر"
+        },
+        {
+          "done": false,
+          "name": "خمکاری"
+        },
+        {
+          "done": false,
+          "name": "رنگ"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/d58be02c.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "186c7c32": {
+      "id": "186c7c32",
+      "name": "50285",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "در طراحی جدید وجود ندارد",
+      "partCode": "50285",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 1,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "خزینه",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/5ec53e10.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "cd3480f8": {
+      "id": "cd3480f8",
+      "name": "50044",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "تفاوت رنگ دارن",
+      "partCode": "50044",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/50c8ecd3.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "4d2d0aad": {
+      "id": "4d2d0aad",
+      "name": "50014",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "در طرح جدید وجود ندارد",
+      "partCode": "50014",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/c84b3d8a.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "349eaa72": {
+      "id": "349eaa72",
+      "name": "50284",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50284",
+      "specs": "درپوش کانکتور دار\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 1,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "done": false,
+          "name": "خرید متریال"
+        },
+        {
+          "done": false,
+          "name": "لیزر"
+        },
+        {
+          "done": false,
+          "name": "خزینه"
+        },
+        {
+          "done": false,
+          "name": "آنودایز"
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/84b683e2.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "e5cfb165": {
+      "id": "e5cfb165",
+      "name": "50282",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "partCode": "50282",
+      "specs": "درپوش بزرگ\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "done": false
+        },
+        {
+          "name": "لیزر",
+          "done": false
+        },
+        {
+          "name": "خزینه",
+          "done": false
+        },
+        {
+          "name": "آنودایز",
+          "done": false
+        }
+      ],
+      "images": [
+        {
+          "url": "/uploads/2fa39deb.png",
+          "label": "طراحی"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "58de28ae": {
+      "id": "58de28ae",
+      "name": "50283",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "قطعات موجود خزینه نشده",
+      "partCode": "50283",
+      "specs": "درپوش کوچک\n",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "خزینه",
+          "status": "not_started"
+        },
+        {
+          "name": "آنودایز",
+          "status": "not_started"
+        }
+      ],
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/de8a026e.png"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "f5e48a7c": {
+      "id": "f5e48a7c",
+      "name": "13170",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/a0aaab05.png"
+        }
+      ],
+      "partCode": "13170",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 1,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "تراش",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "091736d1": {
+      "id": "091736d1",
+      "name": "13192",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/6daaf2b8.png"
+        }
+      ],
+      "partCode": "13192",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "99dcd024": {
+      "id": "99dcd024",
+      "name": "5.2n",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "منتظر بررسی وضعیت جوش",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/1bc54d25.png"
+        }
+      ],
+      "partCode": "5.2n",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "پلیسه گیری و سر هم کردن",
+          "status": "not_started"
+        },
+        {
+          "name": "جوشکاری",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "70c176cc": {
+      "id": "70c176cc",
+      "name": "5.8n",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "منتظر بررسی وضعیت جوش",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/2c0b8e51.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "پلیسه گیری و سر هم کردن",
+          "status": "not_started"
+        },
+        {
+          "name": "جوشکاری",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "df6dbe44": {
+      "id": "df6dbe44",
+      "name": "2.4n",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "منتظر بررسی وضعیت جوش",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/1bca5640.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "پلیسه گیری و سر هم کردن",
+          "status": "not_started"
+        },
+        {
+          "name": "جوشکاری",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "6116d5a8": {
+      "id": "6116d5a8",
+      "name": "ioahgad",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/91884270.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "a39be4fe": {
+      "id": "a39be4fe",
+      "name": "f62hfhpart2",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی 1",
+          "url": "/uploads/149b2fab.png"
+        },
+        {
+          "label": "طراحی 2",
+          "url": "/uploads/9462ccbc.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "b76335e9": {
+      "id": "b76335e9",
+      "name": "2-50283-196968lk",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/0b6d3893.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "2-50283-196968lk",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "خمکاری",
+          "status": "not_started"
+        },
+        {
+          "name": "جوشکاری",
+          "status": "not_started"
+        },
+        {
+          "name": "خزینه",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "ed6b6c85": {
+      "id": "ed6b6c85",
+      "name": "2-11-saysd14_lpda-860-960ghz down",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/555fa732.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "completed",
+      "quantity": 6,
+      "required_quantity": 3,
+      "stages": [],
+      "supplier": "",
+      "order_count": 0
+    },
+    "ca38120c": {
+      "id": "ca38120c",
+      "name": "2-11-saysd14_lpda-860-960ghz top",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/f5e8ddbd.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 6,
+      "required_quantity": 3,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "4c377e07": {
+      "id": "4c377e07",
+      "name": "MAGHAR ANTEN S14",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/4b9922b3.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 8,
+      "required_quantity": 4,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "454731ac": {
+      "id": "454731ac",
+      "name": "CLAMP ANTEN S14",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/50ad5264.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 8,
+      "required_quantity": 4,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "fbf29404": {
+      "id": "fbf29404",
+      "name": "2-860-960-CLAMP1-S14",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/675f08b6.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 8,
+      "required_quantity": 8,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "d13223c6": {
+      "id": "d13223c6",
+      "name": "2-860-960-CLAMP2-S14",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/f30cab98.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 8,
+      "required_quantity": 8,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "fe91a83f": {
+      "id": "fe91a83f",
+      "name": "2-s54g8s1g5part2",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/d1470533.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 7,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "خزینه",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "030fc8ed": {
+      "id": "030fc8ed",
+      "name": "2-s54g8s1g5part2-2",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/8ba6a9b3.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 5,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "خزینه",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "3de79b08": {
+      "id": "3de79b08",
+      "name": "pack anten temp 2print",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/2c840ac5.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 1,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "b7f43694": {
+      "id": "b7f43694",
+      "name": "pack anten temp 2print2",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/ac520777.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 1,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "69f30306": {
+      "id": "69f30306",
+      "name": "2 maghar 860-960-2",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/67ce9680.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "82995770": {
+      "id": "82995770",
+      "name": "gascet",
+      "type": "assembly",
+      "parent": "edb538e6",
+      "children": [
+        "679f1715",
+        "a1d6f5e7",
+        "07a06296",
+        "62514c80",
+        "9b4b6a9d",
+        "3ea969f7",
+        "25fb5544",
+        "5e683e3a"
+      ],
+      "notes": "",
+      "images": [],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [],
+      "supplier": "",
+      "order_count": 0
+    },
+    "679f1715": {
+      "id": "679f1715",
+      "name": "2-sayad14_lpda-860-960ghz-v1.0sss111",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/22cc4a54.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 9,
+      "required_quantity": 3,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "a1d6f5e7": {
+      "id": "a1d6f5e7",
+      "name": "2-5d1g5dpart4",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/a3ad204d.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 1,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "07a06296": {
+      "id": "07a06296",
+      "name": "2-sayad14_lpda-1.1-1.6ghz-v1.2-NEW-MID",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/8195b191.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "62514c80": {
+      "id": "62514c80",
+      "name": "2-sdoigjpart3",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/215d6d8d.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 5,
+      "required_quantity": 4,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "9b4b6a9d": {
+      "id": "9b4b6a9d",
+      "name": "2-5.2-5.8-s14n- laser 001",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/31d8f2c3.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 6,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "3ea969f7": {
+      "id": "3ea969f7",
+      "name": "2-sayad14_lpda-300-400ghz-v1.1",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/33e05c61.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 3,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "25fb5544": {
+      "id": "25fb5544",
+      "name": "2-50282-GASCET",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/603c37a0.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "5e683e3a": {
+      "id": "5e683e3a",
+      "name": "2*50283-GASCET",
+      "type": "part",
+      "parent": "82995770",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/67bd90a5.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 2,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "49809996": {
+      "id": "49809996",
+      "name": "2-s6g16dsgpart10",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/a3025dc9.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "خزینه",
+          "status": "not_started"
+        },
+        {
+          "name": "رنگ",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "23b6168a": {
+      "id": "23b6168a",
+      "name": "2-5.2-5.8-s14n-51-P_lpda-new laser 002",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "آنودایز این قطعه قلع میباشد",
+      "images": [
+        {
+          "url": "/uploads/e3596156.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "completed",
+      "quantity": 7,
+      "required_quantity": 2,
+      "stages": [],
+      "supplier": "",
+      "order_count": 0
+    },
+    "4e27ce27": {
+      "id": "4e27ce27",
+      "name": "2-5.2-5.8-s14n-51-P_lpda- new laser 3",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "آنودایز این قطعه قلع میباشد",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/2fad0ef0.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "completed",
+      "quantity": 7,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        },
+        {
+          "name": "آنودایز",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "94584400": {
+      "id": "94584400",
+      "name": "2-5.2-5.8-s14n-51-P_5DPOJKGODPart1",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/ed74e2af.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 6,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "3526fbca": {
+      "id": "3526fbca",
+      "name": "2-5.2-5.8-s14n-51-P_Part2SDGDG",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/32097629.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 5,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "68f0d150": {
+      "id": "68f0d150",
+      "name": "2-5.2-5.8-s14n-51-P_Part3dsgdsg",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/12f74a71.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 18,
+      "required_quantity": 6,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "221128b2": {
+      "id": "221128b2",
+      "name": "2-5.2-5.8-s14n-51-P_asf989s6f2as",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/64a4065f.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 17,
+      "required_quantity": 6,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "f0307450": {
+      "id": "f0307450",
+      "name": "2-part1s5d41g5g",
+      "type": "part",
+      "parent": "273a7ad8",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/3d5f9747.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 5,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "3D PRINT",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "103bc3b2": {
+      "id": "103bc3b2",
+      "name": "2-opdgpart2",
+      "type": "part",
+      "parent": "492dbe1c",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/8e469040.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 2,
+      "required_quantity": 2,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "لیزر",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "1f6135f5": {
+      "id": "1f6135f5",
+      "name": "2-sayad14_lpda-1.1-1.6ghz-v1.2-NEW-TOP",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/67e7b9d5.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "15d2de4d": {
+      "id": "15d2de4d",
+      "name": "2-sayad14_lpda-1.1-1.6ghz-v1.2-NEW-DOWN",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "label": "طراحی",
+          "url": "/uploads/634cca69.png"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "in_progress",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "23d28bd5": {
+      "id": "23d28bd5",
+      "name": "2-sayad14_lpda-300-400ghz-v1.1-TOP",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/bf25c4af.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "df935825": {
+      "id": "df935825",
+      "name": "2-sayad14_lpda-300-400ghz-v1.1-DOWN",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/3db2e5a9.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 2,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "c8dd2d12": {
+      "id": "c8dd2d12",
+      "name": "2-MAGHAR 860-960-1",
+      "type": "part",
+      "parent": "f5484700",
+      "children": [],
+      "notes": "",
+      "images": [
+        {
+          "url": "/uploads/9ab5c128.png",
+          "label": "طراحی"
+        }
+      ],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "make",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [
+        {
+          "name": "خرید متریال",
+          "status": "not_started"
+        },
+        {
+          "name": "cnc",
+          "status": "not_started"
+        }
+      ],
+      "supplier": "",
+      "order_count": 0
+    },
+    "01879159": {
+      "id": "01879159",
+      "name": "1",
+      "type": "part",
+      "parent": "6115eaf9",
+      "children": [],
+      "notes": "",
+      "images": [],
+      "partCode": "",
+      "specs": "",
+      "docLink": "",
+      "partType": "",
+      "status": "not_started",
+      "quantity": 0,
+      "required_quantity": 1,
+      "stages": [],
+      "supplier": "",
+      "order_count": 0
+    }
+  },
+  "root_ids": [
+    "edb538e6"
+  ]
+}
