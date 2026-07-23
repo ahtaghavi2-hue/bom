@@ -159,7 +159,6 @@ const LANG = {
         mfrSocial: 'شبکه اجتماعی',
     },
     en: {
-    en: {
         name: 'English',
         save: 'Save',
         saving: 'Saving...',
