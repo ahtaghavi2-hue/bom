@@ -290,6 +290,94 @@
         <img class="modal-content" id="modal-img">
     </div>
 
+    <!-- Manufacturer Form Modal -->
+    <div id="mfr-form-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeMfrFormModal()">
+        <div class="modal-card">
+            <div class="modal-card-header">
+                <span id="mfr-form-title">ایجاد سازنده جدید</span>
+                <button class="modal-card-close" onclick="closeMfrFormModal()">✕</button>
+            </div>
+            <div class="modal-card-body">
+                <div class="modal-field">
+                    <label>نام سازنده <span class="required">*</span></label>
+                    <input type="text" id="mfr-name" placeholder="مثلاً کارگاه مهدی">
+                </div>
+                <div class="modal-field">
+                    <label>ایمیل</label>
+                    <div id="mfr-emails-container">
+                        <div class="modal-multi-row">
+                            <input type="email" class="mfr-email-input" placeholder="example@company.com">
+                        </div>
+                    </div>
+                    <button onclick="addMfrEmailRow()" class="btn-small" style="margin-top:4px;">➕ ایمیل دیگر</button>
+                </div>
+                <div class="modal-field">
+                    <label>شبکه‌های اجتماعی</label>
+                    <div id="mfr-socials-container">
+                        <div class="modal-multi-row">
+                            <input type="text" class="mfr-social-platform" placeholder="پلتفرم (Telegram, Instagram, ...)" style="width:40%;">
+                            <input type="text" class="mfr-social-handle" placeholder="آیدی (@username)" style="width:55%;">
+                        </div>
+                    </div>
+                    <button onclick="addMfrSocialRow()" class="btn-small" style="margin-top:4px;">➕ شبکه دیگر</button>
+                </div>
+                <div class="modal-field">
+                    <label>شماره تلفن</label>
+                    <input type="text" id="mfr-phone" placeholder="مثلاً 09121234567">
+                </div>
+                <div class="modal-field">
+                    <label>آدرس</label>
+                    <input type="text" id="mfr-address" placeholder="تهران، خیابان ...">
+                </div>
+                <div class="modal-field">
+                    <label>یادداشت</label>
+                    <textarea id="mfr-notes" rows="2" placeholder="توضیحات اضافی..."></textarea>
+                </div>
+            </div>
+            <div class="modal-card-footer">
+                <button onclick="submitMfrForm()" class="btn-save">💾 ذخیره سازنده</button>
+                <button onclick="closeMfrFormModal()" class="btn-delete">انصراف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manufacturer Select Modal -->
+    <div id="mfr-select-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeMfrSelectModal()">
+        <div class="modal-card">
+            <div class="modal-card-header">
+                <span>انتخاب سازنده</span>
+                <button class="modal-card-close" onclick="closeMfrSelectModal()">✕</button>
+            </div>
+            <div class="modal-card-body">
+                <div id="mfr-select-list" style="max-height:300px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-card-footer">
+                <button onclick="closeMfrSelectModal();showCreateManufacturerForm();" class="btn-add" style="background:#9b59b6;">➕ ایجاد سازنده جدید</button>
+                <button onclick="closeMfrSelectModal()" class="btn-delete">انصراف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage Detail Modal -->
+    <div id="detail-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeDetailModal()">
+        <div class="modal-card" style="max-width:450px;">
+            <div class="modal-card-header">
+                <span id="detail-modal-title">افزودن جزئیات تولید</span>
+                <button class="modal-card-close" onclick="closeDetailModal()">✕</button>
+            </div>
+            <div class="modal-card-body">
+                <div class="modal-field">
+                    <label>متن جزئیات <span class="required">*</span></label>
+                    <textarea id="detail-desc" rows="3" placeholder="توضیح مرحله تولید..."></textarea>
+                </div>
+            </div>
+            <div class="modal-card-footer">
+                <button onclick="submitDetailForm()" class="btn-save">💾 ذخیره</button>
+                <button onclick="closeDetailModal()" class="btn-delete">انصراف</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

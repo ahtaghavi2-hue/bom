@@ -790,41 +790,67 @@ function renderStageDetails(idx) {
 }
 
 function addStageDetail(idx) {
-    const desc = prompt('متن جزئیات جدید:');
-    if (!desc || !desc.trim()) return;
-    const details = stageDetailsMap[idx] = stageDetailsMap[idx] || [];
-    const stepNum = details.length + 1;
-    details.push({ step_number: stepNum, description: desc.trim() });
-    const stage = tempStages[idx];
-    if (stage.id && typeof stage.id === 'number') {
-        fetch('/api/v2/stage-details', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ stage_id: stage.id, step_number: stepNum, description: desc.trim() })
-        }).then(res => res.json()).then(r => {
-            if (r.success) details[details.length-1] = r.data;
-            renderStageDetails(idx);
-        });
-    } else {
-        renderStageDetails(idx);
-    }
+    window._detailStageIdx = idx;
+    window._detailEditIdx = -1;
+    $('#detail-modal-title').text('افزودن جزئیات تولید');
+    $('#detail-desc').val('');
+    $('#detail-modal').fadeIn(150);
 }
 
 function editStageDetail(idx, di) {
     const details = stageDetailsMap[idx] || [];
     const d = details[di];
     if (!d) return;
-    const desc = prompt('ویرایش متن:', d.description);
-    if (!desc || !desc.trim()) return;
-    d.description = desc.trim();
-    if (d.id) {
-        fetch(`/api/v2/stage-details/${d.id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ description: desc.trim(), step_number: d.step_number })
-        });
+    window._detailStageIdx = idx;
+    window._detailEditIdx = di;
+    $('#detail-modal-title').text('ویرایش جزئیات تولید');
+    $('#detail-desc').val(d.description);
+    $('#detail-modal').fadeIn(150);
+}
+
+function closeDetailModal() {
+    $('#detail-modal').fadeOut(150);
+    window._detailStageIdx = null;
+    window._detailEditIdx = null;
+}
+
+function submitDetailForm() {
+    const idx = window._detailStageIdx;
+    const editDi = window._detailEditIdx;
+    const desc = $('#detail-desc').val().trim();
+    if (!desc) { alert('متن جزئیات را وارد کنید'); return; }
+    const details = stageDetailsMap[idx] = stageDetailsMap[idx] || [];
+    if (editDi >= 0 && editDi < details.length) {
+        // Edit existing
+        const d = details[editDi];
+        d.description = desc;
+        if (d.id) {
+            fetch(`/api/v2/stage-details/${d.id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ description: desc, step_number: d.step_number })
+            });
+        }
+        renderStageDetails(idx);
+    } else {
+        // New
+        const stepNum = details.length + 1;
+        details.push({ step_number: stepNum, description: desc });
+        const stage = tempStages[idx];
+        if (stage && stage.id && typeof stage.id === 'number') {
+            fetch('/api/v2/stage-details', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ stage_id: stage.id, step_number: stepNum, description: desc })
+            }).then(res => res.json()).then(r => {
+                if (r.success) details[details.length-1] = r.data;
+                renderStageDetails(idx);
+            });
+        } else {
+            renderStageDetails(idx);
+        }
     }
-    renderStageDetails(idx);
+    closeDetailModal();
 }
 
 function removeStageDetail(idx, di) {
@@ -926,56 +952,121 @@ function renderManufacturerInfo(m) {
 
 function showAddManufacturerToPart() {
     const unused = allManufacturers.filter(m => !partManufacturers.some(pm => pm.id === m.id));
-    let msg = 'انتخاب سازنده از لیست:\n\n';
+    const listContainer = $('#mfr-select-list');
+    listContainer.empty();
     if (unused.length === 0) {
-        msg += '(همه سازنده‌ها قبلاً اضافه شده‌اند)\n';
+        listContainer.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">همه سازنده‌ها قبلاً اضافه شده‌اند</div>');
     } else {
         unused.forEach((m, i) => {
-            msg += `${i+1}. ${m.name}\n`;
+            const info = [];
+            if (m.emails && m.emails.length) info.push(m.emails[0].email);
+            if (m.phones && m.phones.length) info.push(m.phones[0].phone);
+            listContainer.append(`
+                <div class="select-item" onclick="addManufacturerToPart(${m.id});closeMfrSelectModal();">
+                    <div class="select-item-name">${escapeHtml(m.name)}</div>
+                    <div class="select-item-info">${info.join(' | ')}</div>
+                </div>
+            `);
         });
     }
-    msg += '\nیا -1 برای ایجاد سازنده جدید';
-    const choice = prompt(msg);
-    if (!choice) return;
-    const num = parseInt(choice);
-    if (num === -1) {
-        showCreateManufacturerForm();
-    } else if (num > 0 && num <= unused.length) {
-        addManufacturerToPart(unused[num-1].id);
-    } else {
-        alert('عدد نامعتبر');
-    }
+    $('#mfr-select-modal').fadeIn(150);
+}
+
+function closeMfrSelectModal() {
+    $('#mfr-select-modal').fadeOut(150);
 }
 
 function showCreateManufacturerForm() {
-    const name = prompt('نام سازنده:');
-    if (!name || !name.trim()) return;
-    const phone = prompt('شماره تلفن:') || '';
-    const address = prompt('آدرس:') || '';
-    const notes = prompt('یادداشت:') || '';
+    $('#mfr-form-title').text('ایجاد سازنده جدید');
+    $('#mfr-name').val('');
+    $('#mfr-phone').val('');
+    $('#mfr-address').val('');
+    $('#mfr-notes').val('');
+    $('#mfr-emails-container').html(`
+        <div class="modal-multi-row">
+            <input type="email" class="mfr-email-input" placeholder="example@company.com">
+        </div>
+    `);
+    $('#mfr-socials-container').html(`
+        <div class="modal-multi-row">
+            <input type="text" class="mfr-social-platform" placeholder="پلتفرم (Telegram, Instagram, ...)" style="width:40%;">
+            <input type="text" class="mfr-social-handle" placeholder="آیدی (@username)" style="width:55%;">
+        </div>
+    `);
+    window._editingMfrId = null;
+    $('#mfr-form-modal').fadeIn(150);
+}
+
+function closeMfrFormModal() {
+    $('#mfr-form-modal').fadeOut(150);
+}
+
+function addMfrEmailRow() {
+    $('#mfr-emails-container').append(`
+        <div class="modal-multi-row">
+            <input type="email" class="mfr-email-input" placeholder="example@company.com">
+            <button onclick="this.parentElement.remove()" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">✕</button>
+        </div>
+    `);
+}
+
+function addMfrSocialRow() {
+    $('#mfr-socials-container').append(`
+        <div class="modal-multi-row">
+            <input type="text" class="mfr-social-platform" placeholder="پلتفرم (Telegram, Instagram...)" style="width:40%;">
+            <input type="text" class="mfr-social-handle" placeholder="آیدی (@username)" style="width:55%;">
+            <button onclick="this.parentElement.remove()" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">✕</button>
+        </div>
+    `);
+}
+
+function submitMfrForm() {
+    const name = $('#mfr-name').val().trim();
+    if (!name) { alert('نام سازنده الزامی است'); return; }
+    const phone = $('#mfr-phone').val().trim();
+    const address = $('#mfr-address').val().trim();
+    const notes = $('#mfr-notes').val().trim();
     const emails = [];
-    let email = prompt('ایمیل (خالی برای رد شدن):');
-    if (email && email.trim()) emails.push({ email: email.trim() });
-    const socials = [];
-    let platform = prompt('شبکه اجتماعی (مثلاً Telegram, Instagram) - خالی برای رد شدن:');
-    if (platform && platform.trim()) {
-        const handle = prompt(`آیدی ${platform}:`);
-        if (handle && handle.trim()) socials.push({ platform: platform.trim(), handle: handle.trim() });
-    }
-    fetch('/api/v2/manufacturers', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name: name.trim(), phone, address, notes, emails, socials })
-    }).then(res => res.json()).then(r => {
-        if (r.success) {
-            allManufacturers.push(r.data);
-            addManufacturerToPart(r.data.id);
-        } else {
-            alert('خطا در ایجاد سازنده: ' + (r.error || 'نامشخص'));
-        }
-    }).catch(e => {
-        alert('خطا در ارتباط با سرور: ' + e.message);
+    $('.mfr-email-input').each(function() {
+        const v = $(this).val().trim();
+        if (v) emails.push({ email: v });
     });
+    const socials = [];
+    $('.mfr-social-platform').each(function(i) {
+        const platform = $(this).val().trim();
+        const handle = $('.mfr-social-handle').eq(i).val().trim();
+        if (platform && handle) socials.push({ platform, handle });
+    });
+    const payload = { name, phone, address, notes, emails, socials };
+    if (window._editingMfrId) {
+        fetch(`/api/v2/manufacturers/${window._editingMfrId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(res => res.json()).then(r => {
+            if (r.success) {
+                closeMfrFormModal();
+                loadAllManufacturers();
+                loadPartManufacturers(currentNodeId);
+            } else {
+                alert('خطا: ' + (r.error || 'نامشخص'));
+            }
+        }).catch(e => alert('خطا: ' + e.message));
+    } else {
+        fetch('/api/v2/manufacturers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(res => res.json()).then(r => {
+            if (r.success) {
+                allManufacturers.push(r.data);
+                closeMfrFormModal();
+                addManufacturerToPart(r.data.id);
+            } else {
+                alert('خطا در ایجاد سازنده: ' + (r.error || 'نامشخص'));
+            }
+        }).catch(e => alert('خطا در ارتباط با سرور: ' + e.message));
+    }
 }
 
 function addManufacturerToPart(mfrId) {
