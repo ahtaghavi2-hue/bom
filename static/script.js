@@ -123,7 +123,42 @@ const LANG = {
         langDir: 'rtl',
         imageLabel: 'برچسب عکس',
         imageLabelDefault: 'تصویر',
+        notStartedShort: 'شروع نشده',
+        inProgressShort: 'در حال ساخت',
+        completedShort: 'ساخته شده',
+        shortage2: 'کسری',
+        available: 'موجود',
+        required: 'نیاز',
+        order: 'سفارش',
+        stagesCount: 'مرحله',
+        partType: 'نوع قطعه',
+        selectOption: '-- انتخاب کنید --',
+        code: 'کد',
+        download: 'دانلود',
+        sendEmail: 'ارسال ایمیل',
+        planned: 'برنامه‌ریزی شده',
+        cancelled: 'لغو شده',
+        priority: 'اولویت',
+        start: 'شروع',
+        end: 'پایان',
+        materialCost: 'هزینه مواد برآوردی',
+        laborCost: 'دستمزد برآوردی',
+        overheadCost: 'سربار برآوردی',
+        estimatedHours: 'ساعت برآوردی',
+        hoverStock: 'موجودی',
+        hoverTotalReq: 'نیاز کل',
+        hoverSufficient: 'موجودی کافی',
+        hoverPartial: 'موجودی ناقص',
+        hoverShortage: 'کسری انبار',
+        hoverType: 'نوع',
+        mfrInfo: 'اطلاعاتی ثبت نشده',
+        mfrEmail: 'ایمیل',
+        mfrPhone: 'تلفن',
+        mfrAddress: 'آدرس',
+        mfrNotes: 'یادداشت',
+        mfrSocial: 'شبکه اجتماعی',
     },
+    en: {
     en: {
         name: 'English',
         save: 'Save',
@@ -234,6 +269,40 @@ const LANG = {
         langDir: 'ltr',
         imageLabel: 'Image Label',
         imageLabelDefault: 'Image',
+        notStartedShort: 'Not Started',
+        inProgressShort: 'In Progress',
+        completedShort: 'Completed',
+        shortage2: 'Shortage',
+        available: 'Available',
+        required: 'Required',
+        order: 'Order',
+        stagesCount: 'Stages',
+        partType: 'Part Type',
+        selectOption: '-- Select --',
+        code: 'Code',
+        download: 'Download',
+        sendEmail: 'Send Email',
+        planned: 'Planned',
+        cancelled: 'Cancelled',
+        priority: 'Priority',
+        start: 'Start',
+        end: 'End',
+        materialCost: 'Estimated Material Cost',
+        laborCost: 'Estimated Labor Cost',
+        overheadCost: 'Estimated Overhead',
+        estimatedHours: 'Estimated Hours',
+        hoverStock: 'Stock',
+        hoverTotalReq: 'Total Required',
+        hoverSufficient: 'Stock Sufficient',
+        hoverPartial: 'Partial Stock',
+        hoverShortage: 'Stock Shortage',
+        hoverType: 'Type',
+        mfrInfo: 'No info registered',
+        mfrEmail: 'Email',
+        mfrPhone: 'Phone',
+        mfrAddress: 'Address',
+        mfrNotes: 'Notes',
+        mfrSocial: 'Social',
     }
 };
 
@@ -278,7 +347,7 @@ function applyLang() {
     $('#field-total_required-label').text(t('totalRequired'));
     $('#field-supplier-label').text(t('supplier'));
     $('#field-supplier-email-label').text(t('supplierEmail'));
-    $('#field-partType-label').text(t('type'));
+    $('#field-partType-label').text(t('partType'));
     $('#btn-add-assembly').text('📦 ' + t('newAssembly'));
     $('#btn-add-part').text('⚙️ ' + t('newPart'));
     $('#btn-delete').innerHTML = '️ ' + t('delete');
@@ -286,6 +355,13 @@ function applyLang() {
     $('#add-doc-label').text(t('techDocs'));
     $('#part-email-label').text(t('supplierEmail'));
     $('#progress-label').text(t('progress'));
+    // modal buttons
+    $('.btn-ok').text(t('ok'));
+    $('.btn-yes').text(t('yes'));
+    $('.btn-no').text(t('no'));
+    $('.btn-cancel').text(t('cancel'));
+    $('.btn-confirm').text(t('confirm'));
+    $('.btn-save-modal').text(t('save'));
     updateProgressBar();
 }
 
@@ -355,14 +431,14 @@ function loadNotifications() {
             const shortageList = $('#shortage-list');
             shortageList.empty();
             if (notifs.shortage.length === 0) {
-                shortageList.html('<div style="color:var(--text-muted); font-size:12px; padding:8px;">هیچ کسری وجود ندارد ✅</div>');
+                shortageList.html('<div style="color:var(--text-muted); font-size:12px; padding:8px;">✅ ' + t('noSelection') + '</div>');
             } else {
                 notifs.shortage.forEach(item => {
                     shortageList.append(`
                         <div class="notif-item" onclick="goToNode('${item.id}')">
                             <strong>${item.name}</strong><br>
-                            <span style="color:#d32f2f;">کسری: ${item.shortage} عدد</span>
-                            <span style="color:var(--text-muted);"> (موجود: ${item.available} / نیاز: ${item.required})</span>
+                            <span style="color:#d32f2f;">${t('shortage2')}: ${item.shortage}</span>
+                            <span style="color:var(--text-muted);"> (${t('available')}: ${item.available} / ${t('required')}: ${item.required})</span>
                         </div>
                     `);
                 });
@@ -371,13 +447,13 @@ function loadNotifications() {
             const progressList = $('#progress-list');
             progressList.empty();
             if (notifs.in_progress.length === 0) {
-                progressList.html('<div style="color:var(--text-muted); font-size:12px; padding:8px;">هیچ موردی در حال ساخت نیست</div>');
+                progressList.html('<div style="color:var(--text-muted); font-size:12px; padding:8px;">' + t('noNotification') + '</div>');
             } else {
                 notifs.in_progress.forEach(item => {
                     progressList.append(`
                         <div class="notif-item" style="border-right-color:#FF9800;" onclick="goToNode('${item.id}')">
                             <strong>${item.name}</strong><br>
-                            <span style="color:var(--text-secondary);">${item.stages} مرحله تعریف شده</span>
+                            <span style="color:var(--text-secondary);">${item.stages} ${t('stagesCount')}</span>
                         </div>
                     `);
                 });
@@ -386,13 +462,13 @@ function loadNotifications() {
             const orderList = $('#order-list');
             orderList.empty();
             if (notifs.orders_pending.length === 0) {
-                orderList.html('<div style="color:var(--text-muted); font-size:12px; padding:8px;">سفارشی ثبت نشده است</div>');
+                orderList.html('<div style="color:var(--text-muted); font-size:12px; padding:8px;">' + t('noSchedules') + '</div>');
             } else {
                 notifs.orders_pending.forEach(item => {
                     orderList.append(`
                         <div class="notif-item" style="border-right-color:#3498db;" onclick="goToNode('${item.id}')">
                             <strong>${item.name}</strong><br>
-                            <span style="color:var(--text-secondary);">${item.count} عدد سفارش</span>
+                            <span style="color:var(--text-secondary);">${item.count} ${t('order')}</span>
                         </div>
                     `);
                 });
@@ -579,7 +655,7 @@ function showHoverCard(nodeId, e) {
     const node = currentData.nodes[nodeId];
     if (!node) return;
 
-    let imgHtml = '<span style="color:var(--text-muted);">بدون عکس</span>';
+    let imgHtml = '<span style="color:var(--text-muted);">' + t('noImages') + '</span>';
     if (node.images && node.images.length > 0) {
         const url = node.images[0].url.startsWith('/') ? node.images[0].url : '/' + node.images[0].url;
         imgHtml = `<img src="${url}">`;
@@ -587,7 +663,7 @@ function showHoverCard(nodeId, e) {
 
     $('#hover-card-img').html(imgHtml);
     $('#hover-card-name').text(node.name);
-    $('#hover-card-code').text(`کد فنی: ${node.partCode || '-'}`);
+    $('#hover-card-code').text(t('hoverType') + ': ' + t('code') + ': ' + (node.partCode || '-'));
 
     let stockText = '';
     let statusText = '';
@@ -597,20 +673,20 @@ function showHoverCard(nodeId, e) {
         const orderCount = getAncestorOrderCount(nodeId);
         const totalReq = (node.required_quantity || 1) * orderCount;
         const available = node.quantity || 0;
-        stockText = `موجودی: ${available} / نیاز کل: ${totalReq}`;
+        stockText = t('hoverStock') + ': ' + available + ' / ' + t('hoverTotalReq') + ': ' + totalReq;
 
         if (available >= totalReq) {
-            statusText = ' موجودی کافی';
+            statusText = t('hoverSufficient');
             statusColor = '#4CAF50';
         } else if (available > 0) {
-            statusText = ' موجودی ناقص';
+            statusText = t('hoverPartial');
             statusColor = '#FF9800';
         } else {
-            statusText = '🔴 کسری انبار';
+            statusText = '🔴 ' + t('hoverShortage');
             statusColor = '#F44336';
         }
     } else {
-        stockText = `نوع: ${node.type === 'product' ? 'محصول' : 'زیرمجموعه'}`;
+        stockText = t('hoverType') + ': ' + (node.type === 'product' ? t('product') : t('assembly'));
         statusText = '';
     }
 
@@ -646,7 +722,7 @@ function buildTreeNode(nodeId) {
 
     if (node.type === 'product') {
         text = '🏭 ' + text;
-        if (node.order_count > 0) text += ` (${node.order_count} سفارش)`;
+        if (node.order_count > 0) text += ` (${node.order_count} ${t('order')})`;
     } else if (node.type === 'assembly') {
         text = '📦 ' + text;
     } else if (node.type === 'part') {
@@ -690,9 +766,9 @@ function renderKanban() {
     container.empty();
 
     const columns = {
-        'not_started': { title: '🔴 شروع نشده / کسری', cards: [] },
-        'in_progress': { title: '🟡 در حال ساخت / ناقص', cards: [] },
-        'completed': { title: '🟢 ساخته شده / کافی', cards: [] }
+        'not_started': { title: '🔴 ' + t('notStartedShort') + ' / ' + t('shortage2'), cards: [] },
+        'in_progress': { title: '🟡 ' + t('inProgressShort') + ' / ' + t('inProgress'), cards: [] },
+        'completed': { title: '🟢 ' + t('completedShort') + ' / ' + t('sufficient'), cards: [] }
     };
 
     Object.values(currentData.nodes).forEach(node => {
@@ -730,9 +806,9 @@ function renderKanban() {
             const cardEl = $(`
                 <div class="kanban-card status-${status}" onclick="goToNode('${card.id}')">
                     <div class="kanban-card-name">${card.name}</div>
-                    <div class="kanban-card-info">کد: ${card.code}</div>
-                    <div class="kanban-card-info">موجودی: ${card.available} / ${card.required}</div>
-                    <div class="kanban-card-info">${card.stages} مرحله</div>
+                    <div class="kanban-card-info">${t('code')}: ${card.code}</div>
+                    <div class="kanban-card-info">${t('hoverStock')}: ${card.available} / ${card.required}</div>
+                    <div class="kanban-card-info">${card.stages} ${t('stagesCount')}</div>
                 </div>
             `);
             column.find('.kanban-cards').append(cardEl);
@@ -905,8 +981,8 @@ function updateProgressBar() {
     const percentage = Math.round((completed / total) * 100);
     $('#progress-fill').css('width', percentage + '%');
     $('#progress-percentage').text(percentage + '%');
-    $('#progress-completed').text(`${completed} تکمیل شده`);
-    $('#progress-remaining').text(`${total - completed} باقی‌مانده`);
+    $('#progress-completed').text(`${completed} ` + t('completedCount'));
+    $('#progress-remaining').text(`${total - completed} ` + t('remainingCount'));
 }
 
 function toggleSupplierField() {
@@ -921,8 +997,8 @@ function renderImageGallery(images) {
         const url = img.url.startsWith('/') ? img.url : '/' + img.url;
         const item = $(`
             <div class="gallery-item">
-                <img src="${url}" onclick="openModal('${url}')" title="برای بزرگنمایی کلیک کنید">
-                <div class="img-label">${img.label || 'تصویر'}</div>
+                <img src="${url}" onclick="openModal('${url}')" title="${t('noImages')}">
+                <div class="img-label">${img.label || t('imageLabelDefault')}</div>
                 <button class="delete-img-btn" onclick="removeImage(${index})">✕</button>
             </div>
         `);
@@ -934,7 +1010,7 @@ function addImageToGallery(input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
         const currentInput = input;
-        showPromptModal('برچسب عکس', 'برچسب:', 'تصویر', function(label) {
+        showPromptModal(t('imageLabel'), t('name') + ':', t('imageLabelDefault'), function(label) {
             if (label === null || label === undefined) { currentInput.value = ''; return; }
             const formData = new FormData();
             formData.append('file', file);
@@ -943,7 +1019,7 @@ function addImageToGallery(input) {
                 .then(data => {
                     const node = currentData.nodes[currentNodeId];
                     if (!node.images) node.images = [];
-                    node.images.push({ url: data.url, label: label || 'تصویر' });
+                    node.images.push({ url: data.url, label: label || t('imageLabelDefault') });
                     renderImageGallery(node.images);
                     currentInput.value = '';
                     autoSaveNode();
@@ -953,7 +1029,7 @@ function addImageToGallery(input) {
 }
 
 function removeImage(index) {
-    showConfirmModal('آیا از حذف این عکس مطمئن هستید؟', function(result) {
+    showConfirmModal(t('confirmDelete'), function(result) {
         if (!result) return;
         const node = currentData.nodes[currentNodeId];
         node.images.splice(index, 1);
@@ -982,15 +1058,15 @@ function calculateShortage() {
     const textSpan = $('#shortage-text');
     if (shortage > 0) {
         infoDiv.show(); infoDiv.css('background', '#ffebee');
-        textSpan.html(` شما <strong>${shortage}</strong> عدد کم دارید! (نیاز کل: ${required}، موجود: ${available})`);
+        textSpan.html(`<strong>${shortage}</strong> ${t('shortage2')}! (${t('hoverTotalReq')}: ${required}, ${t('available')}: ${available})`);
         textSpan.css('color', '#d32f2f');
     } else if (shortage === 0) {
         infoDiv.show(); infoDiv.css('background', '#e8f5e9');
-        textSpan.html('🟢 موجودی دقیقاً کافی است');
+        textSpan.html('🟢 ' + t('hoverSufficient'));
         textSpan.css('color', '#2e7d32');
     } else {
         infoDiv.show(); infoDiv.css('background', '#e3f2fd');
-        textSpan.html(` مازاد موجودی: <strong>${Math.abs(shortage)}</strong> عدد`);
+        textSpan.html(`<strong>${Math.abs(shortage)}</strong>`);
         textSpan.css('color', '#1976d2');
     }
 }
@@ -999,7 +1075,7 @@ function renderStages() {
     const list = $('#stages-list');
     list.empty();
     if (tempStages.length === 0) {
-        list.html('<p style="color:var(--text-muted); margin:5px; font-size:13px;">هنوز مرحله‌ای تعریف نشده</p>');
+        list.html('<p style="color:var(--text-muted); margin:5px; font-size:13px;">' + t('noStages') + '</p>');
         updateProgressBar();
         updateCostSummary();
         return;
@@ -1010,27 +1086,28 @@ function renderStages() {
         const laborCost = stage.estimated_labor_cost || 0;
         const overhead = stage.estimated_overhead || 0;
         const hours = stage.estimated_hours || 0;
-        const isExpanded = expandedStages[idx] || false;
-        const stageKey = stage.id ? `s_${stage.id}` : `idx_${idx}`;
+        if (!stage.id && !stage._tmpId) stage._tmpId = 'tmp_' + Date.now() + '_' + idx;
+        const stageKey = stage.id ? `s_${stage.id}` : `tmp_${stage._tmpId}`;
+        const isExpanded = expandedStages[stageKey] || false;
 
         const item = $(`
-            <div class="stage-item-new" data-index="${idx}">
-                <span class="stage-drag-handle" style="cursor: grab; color:var(--text-muted);" draggable="true">☰</span>
-                <div style="flex:1;min-width:0;">
+            <div class="stage-item-new" draggable="true" data-index="${idx}">
+                <span class="stage-drag-handle" style="cursor: grab; color:var(--text-muted);">☰</span>
+                <div style="flex:1;min-width:0;" onmousedown="event.stopPropagation()">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span class="stage-expand-btn" onclick="event.stopPropagation();toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);user-select:none;">${isExpanded ? '▼' : '▶'}</span>
+                        <span class="stage-expand-btn" onclick="toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);user-select:none;" onmousedown="event.stopPropagation()">${isExpanded ? '▼' : '▶'}</span>
                         <span class="stage-name">${stage.name}</span>
-                        <div class="stage-status-btns">
-                            <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="event.stopPropagation();setStageStatus(${idx}, 'not_started')" title="${currentLang === 'fa' ? 'شروع نشده' : 'Not Started'}">🔴</button>
-                            <button class="stage-status-btn ${status === 'in_progress' ? 'active-in-progress' : ''}" onclick="event.stopPropagation();setStageStatus(${idx}, 'in_progress')" title="${currentLang === 'fa' ? 'جاری شده' : 'In Progress'}">🟡</button>
-                            <button class="stage-status-btn ${status === 'completed' ? 'active-completed' : ''}" onclick="event.stopPropagation();setStageStatus(${idx}, 'completed')" title="${currentLang === 'fa' ? 'ساخته شده' : 'Completed'}">🟢</button>
+                        <div class="stage-status-btns" onmousedown="event.stopPropagation()">
+                            <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="setStageStatus(${idx}, 'not_started')" title="${t('notStarted')}">🔴</button>
+                            <button class="stage-status-btn ${status === 'in_progress' ? 'active-in-progress' : ''}" onclick="setStageStatus(${idx}, 'in_progress')" title="${t('inProgress')}">🟡</button>
+                            <button class="stage-status-btn ${status === 'completed' ? 'active-completed' : ''}" onclick="setStageStatus(${idx}, 'completed')" title="${t('completed')}">🟢</button>
                         </div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
-                        <span title="${currentLang === 'fa' ? 'هزینه مواد برآوردی' : 'Est. Material Cost'}">💰 ${t('material')}: <input type="number" step="1000" value="${matCost}" onchange="event.stopPropagation();tempStages[${idx}].estimated_material_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="${currentLang === 'fa' ? 'دستمزد برآوردی' : 'Est. Labor Cost'}">🔧 ${t('labor')}: <input type="number" step="1000" value="${laborCost}" onchange="event.stopPropagation();tempStages[${idx}].estimated_labor_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="${currentLang === 'fa' ? 'سربار برآوردی' : 'Est. Overhead'}">📋 ${t('overhead')}: <input type="number" step="1000" value="${overhead}" onchange="event.stopPropagation();tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="${currentLang === 'fa' ? 'ساعت برآوردی' : 'Est. Hours'}">⏱ ${t('hours')}: <input type="number" step="0.5" value="${hours}" onchange="event.stopPropagation();tempStages[${idx}].estimated_hours=Number(this.value);updateCostSummary();autoSaveNode()" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                    <div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;" onmousedown="event.stopPropagation()">
+                        <span title="${t('material')}">💰 ${t('material')}: <input type="number" step="1000" value="${matCost}" onchange="tempStages[${idx}].estimated_material_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="${t('labor')}">🔧 ${t('labor')}: <input type="number" step="1000" value="${laborCost}" onchange="tempStages[${idx}].estimated_labor_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="${t('overhead')}">📋 ${t('overhead')}: <input type="number" step="1000" value="${overhead}" onchange="tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="${t('hours')}">⏱ ${t('hours')}: <input type="number" step="0.5" value="${hours}" onchange="tempStages[${idx}].estimated_hours=Number(this.value);updateCostSummary();autoSaveNode()" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
                     </div>
 
                     ${isExpanded ? `
@@ -1059,17 +1136,40 @@ function renderStages() {
                 <button class="stage-remove-btn" onclick="removeStage(${idx})">✕</button>
             </div>
         `);
-        const handle = item.find('.stage-drag-handle');
-        handle.on('dragstart', function(e) { $(this).closest('.stage-item-new').addClass('dragging'); e.originalEvent.dataTransfer.setData('text/plain', idx); });
-        handle.on('dragend', function() { $(this).closest('.stage-item-new').removeClass('dragging'); });
+        item.on('dragstart', function(e) {
+            if (!$(e.target).closest('.stage-drag-handle').length) { e.preventDefault(); return; }
+            $(this).addClass('dragging');
+            e.originalEvent.dataTransfer.setData('text/plain', idx);
+        });
+        item.on('dragend', function() { $(this).removeClass('dragging'); });
         item.on('dragover', function(e) { e.preventDefault(); });
         item.on('drop', function(e) {
             e.preventDefault();
             const fromIdx = parseInt(e.originalEvent.dataTransfer.getData('text/plain'));
             const toIdx = parseInt($(this).data('index'));
             if (fromIdx !== toIdx && !isNaN(fromIdx)) {
+                // save expand/details state as arrays aligned with tempStages
+                const expArr = tempStages.map((s, i) => {
+                    const sk = s.id ? `s_${s.id}` : (s._tmpId ? `tmp_${s._tmpId}` : null);
+                    return sk ? (expandedStages[sk] || false) : (expandedStages[i] || false);
+                });
+                const detArr = tempStages.map((_, i) => stageDetailsMap[i] || []);
+                // reorder
                 const movedItem = tempStages.splice(fromIdx, 1)[0];
                 tempStages.splice(toIdx, 0, movedItem);
+                const movedExp = expArr.splice(fromIdx, 1)[0];
+                expArr.splice(toIdx, 0, movedExp);
+                const movedDet = detArr.splice(fromIdx, 1)[0];
+                detArr.splice(toIdx, 0, movedDet);
+                // rebuild maps using stageKey
+                expandedStages = {};
+                stageDetailsMap = {};
+                tempStages.forEach((s, i) => {
+                    if (!s.id && !s._tmpId) s._tmpId = 'tmp_' + Date.now() + '_' + i;
+                    const sk = s.id ? `s_${s.id}` : `tmp_${s._tmpId}`;
+                    if (expArr[i]) expandedStages[sk] = true;
+                    if (detArr[i].length) stageDetailsMap[i] = detArr[i]; // keep numeric for simplicity
+                });
                 renderStages();
                 autoSaveNode();
             }
@@ -1086,7 +1186,11 @@ function renderStages() {
 }
 
 function toggleStageExpand(idx) {
-    expandedStages[idx] = !expandedStages[idx];
+    const stage = tempStages[idx];
+    if (!stage) return;
+    if (!stage.id && !stage._tmpId) stage._tmpId = 'tmp_' + Date.now() + '_' + idx;
+    const stageKey = stage.id ? `s_${stage.id}` : `tmp_${stage._tmpId}`;
+    expandedStages[stageKey] = !expandedStages[stageKey];
     renderStages();
 }
 
@@ -1118,7 +1222,7 @@ function renderStageDetails(idx) {
     if (!container.length) return;
     const details = stageDetailsMap[idx] || [];
     if (details.length === 0) {
-        container.html('<div style="font-size:11px;color:var(--text-muted);padding:4px;">هنوز جزئیاتی ثبت نشده. دکمه "افزودن جزئیات" را بزنید.</div>');
+        container.html('<div style="font-size:11px;color:var(--text-muted);padding:4px;">' + t('noStages') + '. ' + t('addDetail') + '.</div>');
         return;
     }
     let html = '';
@@ -1138,7 +1242,7 @@ function renderStageDetails(idx) {
 function addStageDetail(idx) {
     window._detailStageIdx = idx;
     window._detailEditIdx = -1;
-    $('#detail-modal-title').text('افزودن جزئیات تولید');
+    $('#detail-modal-title').text(t('stageDetails') + ' - ' + t('addDetail'));
     $('#detail-desc').val('');
     $('#detail-modal').fadeIn(150);
 }
@@ -1149,7 +1253,7 @@ function editStageDetail(idx, di) {
     if (!d) return;
     window._detailStageIdx = idx;
     window._detailEditIdx = di;
-    $('#detail-modal-title').text('ویرایش جزئیات تولید');
+    $('#detail-modal-title').text(t('stageDetails') + ' - ' + t('edit'));
     $('#detail-desc').val(d.description);
     $('#detail-modal').fadeIn(150);
 }
@@ -1164,7 +1268,7 @@ function submitDetailForm() {
     const idx = window._detailStageIdx;
     const editDi = window._detailEditIdx;
     const desc = $('#detail-desc').val().trim();
-    if (!desc) { showAlertModal('متن جزئیات را وارد کنید'); return; }
+    if (!desc) { showAlertModal(t('detailText')); return; }
     const details = stageDetailsMap[idx] = stageDetailsMap[idx] || [];
     if (editDi >= 0 && editDi < details.length) {
         // Edit existing
@@ -1200,7 +1304,7 @@ function submitDetailForm() {
 }
 
 function removeStageDetail(idx, di) {
-    showConfirmModal('حذف شود؟', function(result) {
+    showConfirmModal(t('delete') + '?', function(result) {
         if (!result) return;
         const details = stageDetailsMap[idx] || [];
         const d = details[di];
@@ -1238,7 +1342,7 @@ function loadAllManufacturers() {
 
 function renderPartManufacturersList() {
     if (!partManufacturers || partManufacturers.length === 0) {
-        return '<div style="font-size:11px;color:var(--text-muted);padding:4px;">هیچ سازنده‌ای ثبت نشده</div>';
+        return '<div style="font-size:11px;color:var(--text-muted);padding:4px;">' + t('noManufacturer') + '</div>';
     }
     let html = '';
     partManufacturers.forEach((m, mi) => {
@@ -1275,12 +1379,12 @@ function renderManufacturerInfo(m) {
     let html = '';
     if (m.emails && m.emails.length) {
         m.emails.forEach(e => {
-            html += `<div style="margin-bottom:2px;">📧 ایمیل: ${escapeHtml(e.email)}</div>`;
+            html += `<div style="margin-bottom:2px;">📧 ${t('mfrEmail')}: ${escapeHtml(e.email)}</div>`;
         });
     }
     if (m.phones && m.phones.length) {
         m.phones.forEach(p => {
-            html += `<div style="margin-bottom:2px;">📞 تلفن: ${escapeHtml(p.phone)}</div>`;
+            html += `<div style="margin-bottom:2px;">📞 ${t('mfrPhone')}: ${escapeHtml(p.phone)}</div>`;
         });
     }
     if (m.socials && m.socials.length) {
@@ -1289,12 +1393,12 @@ function renderManufacturerInfo(m) {
         });
     }
     if (m.address) {
-        html += `<div style="margin-bottom:2px;">📍 آدرس: ${escapeHtml(m.address)}</div>`;
+        html += `<div style="margin-bottom:2px;">📍 ${t('mfrAddress')}: ${escapeHtml(m.address)}</div>`;
     }
     if (m.notes) {
-        html += `<div style="margin-bottom:2px;">📝 یادداشت: ${escapeHtml(m.notes)}</div>`;
+        html += `<div style="margin-bottom:2px;">📝 ${t('mfrNotes')}: ${escapeHtml(m.notes)}</div>`;
     }
-    if (!html) html = '<div style="color:var(--text-muted);">اطلاعاتی ثبت نشده</div>';
+    if (!html) html = '<div style="color:var(--text-muted);">' + t('mfrInfo') + '</div>';
     return html;
 }
 
@@ -1303,7 +1407,7 @@ function showAddManufacturerToPart() {
     const listContainer = $('#mfr-select-list');
     listContainer.empty();
     if (unused.length === 0) {
-        listContainer.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">همه سازنده‌ها قبلاً اضافه شده‌اند</div>');
+        listContainer.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">' + t('allAdded') + '</div>');
     } else {
         unused.forEach((m, i) => {
             const info = [];
@@ -1325,7 +1429,7 @@ function closeMfrSelectModal() {
 }
 
 function showCreateManufacturerForm() {
-    $('#mfr-form-title').text('ایجاد سازنده جدید');
+    $('#mfr-form-title').text(t('createManufacturer'));
     $('#mfr-name').val('');
     $('#mfr-phone').val('');
     $('#mfr-address').val('');
@@ -1370,7 +1474,7 @@ function addMfrSocialRow() {
 
 function submitMfrForm() {
     const name = $('#mfr-name').val().trim();
-    if (!name) { showAlertModal('نام سازنده الزامی است'); return; }
+    if (!name) { showAlertModal(t('nameRequired')); return; }
     const phone = $('#mfr-phone').val().trim();
     const address = $('#mfr-address').val().trim();
     const notes = $('#mfr-notes').val().trim();
@@ -1437,7 +1541,7 @@ function addManufacturerToPart(mfrId) {
 }
 
 function removeManufacturerFromPart(mi) {
-    showConfirmModal(`حذف "${partManufacturers[mi].name}" از سازندگان این قطعه؟`, function(result) {
+    showConfirmModal(t('delete') + ' "' + partManufacturers[mi].name + '"?', function(result) {
         if (!result) return;
         const mfr = partManufacturers[mi];
         const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
@@ -1473,11 +1577,11 @@ function updateCostSummary() {
         $('#cost-summary-group').show();
         $('#cost-summary').html(
             `<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:5px;">
-                <span>مواد: <strong>${totalMat.toLocaleString()}</strong></span>
-                <span>دستمزد: <strong>${totalLabor.toLocaleString()}</strong></span>
-                <span>سربار: <strong>${totalOverhead.toLocaleString()}</strong></span>
-                <span>ساعت: <strong>${totalHours}</strong></span>
-                <span style="color:var(--accent-green);font-weight:bold;">مجموع: ${grandTotal.toLocaleString()}</span>
+                <span>${t('materialCost')}: <strong>${totalMat.toLocaleString()}</strong></span>
+                <span>${t('laborCost')}: <strong>${totalLabor.toLocaleString()}</strong></span>
+                <span>${t('overheadCost')}: <strong>${totalOverhead.toLocaleString()}</strong></span>
+                <span>${t('estimatedHours')}: <strong>${totalHours}</strong></span>
+                <span style="color:var(--accent-green);font-weight:bold;">${t('total')}: ${grandTotal.toLocaleString()}</span>
             </div>`
         );
     } else {
@@ -1493,7 +1597,7 @@ function setStageStatus(idx, status) {
 
 function addStage() {
     const name = $('#new-stage-name').val().trim();
-    if (!name) { showAlertModal('لطفاً نام مرحله را وارد یا انتخاب کنید'); return; }
+    if (!name) { showAlertModal(t('stageRequired')); return; }
     tempStages.push({ name: name, status: 'not_started', estimated_material_cost: 0, estimated_labor_cost: 0, estimated_overhead: 0, estimated_hours: 0 });
     $('#new-stage-name').val('');
     renderStages();
@@ -1501,7 +1605,7 @@ function addStage() {
 }
 
 function removeStage(idx) {
-    showConfirmModal('حذف مرحله "' + tempStages[idx].name + '"؟', function(ok) {
+    showConfirmModal(t('delete') + ' "' + tempStages[idx].name + '"؟', function(ok) {
         if (!ok) return;
         tempStages.splice(idx, 1);
         renderStages();
@@ -1512,7 +1616,7 @@ function removeStage(idx) {
 // Inline Edit
 function openInlineEdit(nodeId, field, currentValue) {
     inlineEditContext = { nodeId, field };
-    $('#inline-edit-title').text(field === 'name' ? 'ویرایش نام' : 'ویرایش مقدار');
+    $('#inline-edit-title').text(t('edit') + ' ' + (field === 'name' ? t('name') : t('specs')));
     $('#inline-edit-input').val(currentValue);
     $('#inline-edit-modal').show();
     $('#inline-edit-input').focus();
@@ -1549,11 +1653,11 @@ function addRootProduct() {
 }
 
 function addChildOf(type) {
-    if (!currentNodeId) { showAlertModal('⚠️ ابتدا باید روی یک گره کلیک کنید'); return; }
+    if (!currentNodeId) { showAlertModal(t('selectNode')); return; }
     const parentNode = currentData.nodes[currentNodeId];
-    if (parentNode.type === 'part') { showAlertModal('⚠️ قطعه نمی‌تواند زیرمجموعه داشته باشد'); return; }
-    const typeName = type === 'assembly' ? 'زیرمجموعه' : 'قطعه';
-    showPromptModal(`${typeName} جدید`, `نام ${typeName}:`, `${typeName} جدید`, function(name) {
+    if (parentNode.type === 'part') { showAlertModal(t('partNoChildren')); return; }
+    const typeKey = type === 'assembly' ? 'newAssembly' : 'newPart';
+    showPromptModal(t(typeKey), t('name') + ':', t(typeKey), function(name) {
         if (!name) return;
         fetch('/api/node', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: name, type: type, parent: currentNodeId }) })
         .then(res => res.json()).then(result => {
@@ -1567,7 +1671,7 @@ function addChildOf(type) {
 
 function deleteNode() {
     if (!currentNodeId) return;
-    showConfirmModal('⚠️ آیا از حذف مطمئن هستید؟', function(result) {
+    showConfirmModal(t('confirmDelete'), function(result) {
         if (!result) return;
         fetch(`/api/node/${currentNodeId}`, { method: 'DELETE' }).then(() => {
             currentNodeId = null;
@@ -1588,8 +1692,8 @@ function exportExcel() {
     Object.values(currentData.nodes).forEach(node => {
         if (node.type === 'product') products.push({ id: node.id, name: node.name, order_count: node.order_count || 0 });
     });
-    if (products.length === 0) { showAlertModal('هیچ محصولی تعریف نشده است!'); return; }
-    showProductSelectModal('انتخاب محصول برای خروجی Excel', products, function(pid) {
+    if (products.length === 0) { showAlertModal(t('noProduct')); return; }
+    showProductSelectModal(t('productForExport'), products, function(pid) {
         window.location.href = `/api/export/excel?product_id=${pid}`;
     });
 }
@@ -1599,8 +1703,8 @@ function exportSchematic() {
     Object.values(currentData.nodes).forEach(node => {
         if (node.type === 'product') products.push({ id: node.id, name: node.name });
     });
-    if (products.length === 0) { showAlertModal('هیچ محصولی تعریف نشده است!'); return; }
-    showProductSelectModal('انتخاب محصول برای شماتیک', products, function(pid) {
+    if (products.length === 0) { showAlertModal(t('noProduct')); return; }
+    showProductSelectModal(t('productForExport'), products, function(pid) {
         window.location.href = `/api/export/schematic?product_id=${pid}`;
     });
 }
@@ -1622,8 +1726,8 @@ function updateThemeIcon(theme) {
 
 function sendPartEmail() {
     const email = $('#field-supplier-email').val().trim();
-    if (!email) { showAlertModal('لطفاً ابتدا ایمیل تأمین‌کننده را وارد کنید'); return; }
-    showConfirmModal(`ارسال ایمیل هشدار کمبود به ${email}؟`, function(result) {
+    if (!email) { showAlertModal(t('supplierEmail')); return; }
+    showConfirmModal(t('sendEmail') + ` ${t('supplier')}: ${email}?`, function(result) {
         if (!result) return;
         fetch('/api/send-part-email', {
             method: 'POST',
@@ -1644,7 +1748,7 @@ function loadDocuments(nodeId) {
             const container = $('#documents-list');
             container.empty();
             if (!res.data || res.data.length === 0) {
-                container.html('<div style="color:var(--text-muted);padding:10px;font-size:13px;">هیچ مدرک فنی بارگذاری نشده است</div>');
+                container.html('<div style="color:var(--text-muted);padding:10px;font-size:13px;">' + t('noDocuments') + '</div>');
                 return;
             }
             res.data.forEach(doc => {
@@ -1658,7 +1762,7 @@ function loadDocuments(nodeId) {
                             <div style="font-weight:bold;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${doc.filename}</div>
                             <div style="font-size:11px;color:var(--text-muted);">${sizeStr} | ${new Date(doc.uploaded_at).toLocaleDateString('fa-IR')}</div>
                         </div>
-                        <a href="${doc.url}" target="_blank" class="btn-small" style="text-decoration:none;background:#4CAF50;">⬇ دانلود</a>
+                        <a href="${doc.url}" target="_blank" class="btn-small" style="text-decoration:none;background:#4CAF50;">⬇ ${t('download')}</a>
                         <button onclick="deleteDocument(${doc.id})" class="btn-small" style="background:#f44336;">✕</button>
                     </div>
                 `);
@@ -1683,7 +1787,7 @@ function uploadDocument(input) {
 }
 
 function deleteDocument(docId) {
-    showConfirmModal('آیا از حذف این مدرک مطمئن هستید؟', function(result) {
+    showConfirmModal(t('confirmDelete'), function(result) {
         if (!result) return;
         fetch(`/api/documents/${docId}`, { method: 'DELETE' })
             .then(res => res.json())
@@ -1709,19 +1813,19 @@ function loadSchedulesForProduct(nodeId) {
             let productId = nodeId;
             const schedules = res.data.filter(s => s.product_name === productName || s.product_id == productId.replace('p',''));
             if (schedules.length === 0) {
-                container.html('<div style="color:var(--text-muted);padding:10px;">برنامه‌ای ثبت نشده است</div>');
+                container.html('<div style="color:var(--text-muted);padding:10px;">' + t('noSchedules') + '</div>');
                 return;
             }
-            const statusMap = { planned: 'برنامه‌ریزی شده', in_progress: 'در حال اجرا', completed: 'تکمیل شده', cancelled: 'لغو شده' };
+            const statusMap = { planned: t('planned'), in_progress: t('inProgress'), completed: t('completed'), cancelled: t('cancelled') };
             schedules.forEach(s => {
                 container.append(`
-                    <div style="background:var(--bg-tertiary);padding:10px;border-radius:6px;margin-bottom:8px;border-right:3px solid ${s.status === 'completed' ? '#4CAF50' : s.status === 'in_progress' ? '#FF9800' : '#2196F3'};">
+                    <div style="background:var(--bg-tertiary);padding:10px;border-radius:6px;margin-bottom:8px;border-right:3px solid ${s.status === 'completed' ? '#4CAF50' : s.status === 'in_progress' ? '#FF9800' : '#9E9E9E'};">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <strong>${s.quantity} عدد</strong>
-                            <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${s.status === 'completed' ? '#C8E6C9' : s.status === 'in_progress' ? '#FFE0B2' : '#BBDEFB'};">${statusMap[s.status] || s.status}</span>
+                            <strong>${s.quantity} ${t('orderCount')}</strong>
+                            <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${s.status === 'completed' ? '#4CAF50' : s.status === 'in_progress' ? '#FF9800' : '#9E9E9E'};color:#fff;">${statusMap[s.status] || s.status}</span>
                         </div>
                         <div style="font-size:12px;color:var(--text-muted);margin-top:5px;">
-                            اولویت: ${s.priority} | شروع: ${s.start_date ? new Date(s.start_date).toLocaleDateString('fa-IR') : '-'} | پایان: ${s.end_date ? new Date(s.end_date).toLocaleDateString('fa-IR') : '-'}
+                            ${t('priority')}: ${s.priority} | ${t('start')}: ${s.start_date ? new Date(s.start_date).toLocaleDateString(currentLang === 'fa' ? 'fa-IR' : 'en-US') : '-'} | ${t('end')}: ${s.end_date ? new Date(s.end_date).toLocaleDateString(currentLang === 'fa' ? 'fa-IR' : 'en-US') : '-'}
                         </div>
                         ${s.notes ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + s.notes + '</div>' : ''}
                     </div>
@@ -1732,7 +1836,7 @@ function loadSchedulesForProduct(nodeId) {
 
 function showAddSchedule() {
     const node = currentData.nodes[currentNodeId];
-    if (!node || node.type !== 'product') { showAlertModal('ابتدا یک محصول را انتخاب کنید'); return; }
+    if (!node || node.type !== 'product') { showAlertModal(t('selectNode')); return; }
     showScheduleModal();
 }
 
@@ -1809,13 +1913,13 @@ function showProductSelectModal(title, products, callback) {
     const list = $('#product-select-list');
     list.empty();
     if (!products || products.length === 0) {
-        list.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">هیچ محصولی تعریف نشده</div>');
+        list.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">' + t('noProduct') + '</div>');
     } else {
         products.forEach((p, i) => {
             list.append(`
                 <div class="select-item" data-pid="${p.id}">
                     <div class="select-item-name">${escapeHtml(p.name)}</div>
-                    <div class="select-item-info">${p.order_count ? p.order_count + ' سفارش' : ''}</div>
+                    <div class="select-item-info">${p.order_count ? p.order_count + ' ' + t('order') : ''}</div>
                 </div>
             `);
         });
@@ -1859,7 +1963,7 @@ function submitScheduleModal() {
     const notes = $('#sched-notes').val().trim();
 
     const node = currentData.nodes[currentNodeId];
-    if (!node || node.type !== 'product') { showAlertModal('ابتدا یک محصول را انتخاب کنید'); return; }
+    if (!node || node.type !== 'product') { showAlertModal(t('selectNode')); return; }
 
     const productId = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
     fetch('/api/schedules', {
@@ -1874,7 +1978,7 @@ function submitScheduleModal() {
         })
     }).then(res => res.json()).then(() => {
         $('#schedule-modal').fadeOut(150);
-        showToast('برنامه تولید با موفقیت ثبت شد');
+        showToast(t('newSchedule') + ' ' + t('saveSuccess'));
         loadSchedulesForProduct(currentNodeId);
     }).catch(e => showAlertModal('خطا: ' + e.message));
 }
