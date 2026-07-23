@@ -292,6 +292,19 @@ button { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; f
 .modal-close { position: absolute; top: 20px; right: 35px; color: #f1f1f1; font-size: 45px; font-weight: bold; cursor: pointer; transition: 0.3s; }
 .modal-close:hover { color: var(--accent-green); }
 
+/* Stage Expand */
+.stage-expand-btn { user-select: none; transition: transform 0.2s; }
+.stage-expand-btn:hover { color: #1976D2; }
+.stage-expanded { animation: slideDown 0.25s ease; }
+@keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 1000px; } }
+.stage-details-list { max-height: 200px; overflow-y: auto; }
+.stage-details-list div:hover { background: var(--border-light) !important; }
+.manufacturer-item { transition: box-shadow 0.2s; }
+.manufacturer-item:hover { box-shadow: 0 1px 4px var(--shadow-color); }
+.manufacturers-list { max-height: 300px; overflow-y: auto; }
+.mfr-header:hover { background: var(--border-light) !important; }
+.mfr-body { border-top: 1px solid var(--border-color); }
+
 /* Responsive */
 @media (max-width: 968px) {
     .layout { grid-template-columns: 1fr; height: auto; }

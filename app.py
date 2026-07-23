@@ -16,6 +16,7 @@ import graphviz
 from config import Config
 from extensions import db, login_manager, mail, migrate, cors
 from models import Product, Assembly, Part, Stage, Image, Document, Setting, User, ProductionSchedule, WorkOrder
+from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
 from auth import auth_bp
 from api_v2 import api_bp
 

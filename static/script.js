@@ -5,6 +5,10 @@ let openedNodes = [];
 let currentView = 'tree';
 let currentMainView = 'tree';
 let inlineEditContext = null;
+let stageDetailsMap = {};
+let partManufacturers = [];
+let allManufacturers = [];
+let expandedStages = {};
 
 $(document).ready(function() {
     // بارگذاری تم ذخیره‌شده
@@ -527,10 +531,14 @@ function showEditForm(node) {
                 delete s.done;
             }
         });
+        stageDetailsMap = {};
+        expandedStages = {};
         renderStages();
         updateProgressBar();
         $('#tab-btn-docs').show();
         loadDocuments(currentNodeId);
+        loadPartManufacturers(currentNodeId);
+        loadAllManufacturers();
     } else if (node.type === 'product') {
         $('#tab-btn-mfg').hide();
         $('#tab-btn-schedule').show();
@@ -658,11 +666,15 @@ function renderStages() {
         const laborCost = stage.estimated_labor_cost || 0;
         const overhead = stage.estimated_overhead || 0;
         const hours = stage.estimated_hours || 0;
+        const isExpanded = expandedStages[idx] || false;
+        const stageKey = stage.id ? `s_${stage.id}` : `idx_${idx}`;
+
         const item = $(`
             <div class="stage-item-new" draggable="true" data-index="${idx}">
                 <span style="cursor: grab; color:var(--text-muted);">☰</span>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span class="stage-expand-btn" onclick="toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);">${isExpanded ? '▼' : '▶'}</span>
                         <span class="stage-name">${stage.name}</span>
                         <div class="stage-status-btns">
                             <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="setStageStatus(${idx}, 'not_started')" title="شروع نشده">🔴</button>
@@ -676,6 +688,29 @@ function renderStages() {
                         <span title="سربار برآوردی">📋 سربار: <input type="number" step="1000" value="${overhead}" onchange="tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
                         <span title="ساعت برآوردی">⏱ ساعت: <input type="number" step="0.5" value="${hours}" onchange="tempStages[${idx}].estimated_hours=Number(this.value);updateCostSummary()" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
                     </div>
+
+                    ${isExpanded ? `
+                    <div class="stage-expanded" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-color);">
+                        <div style="background:var(--bg-tertiary);padding:8px;border-radius:6px;margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <strong style="font-size:12px;"> جزئیات تولید</strong>
+                                <button onclick="addStageDetail(${idx})" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ افزودن جزئیات</button>
+                            </div>
+                            <div id="stage-details-${idx}" class="stage-details-list">
+                                <div style="font-size:11px;color:var(--text-muted);padding:4px;">در حال بارگذاری...</div>
+                            </div>
+                        </div>
+                        <div style="background:var(--bg-tertiary);padding:8px;border-radius:6px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <strong style="font-size:12px;">🏭 سازندگان قطعه</strong>
+                                <button onclick="showAddManufacturerToPart()" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ افزودن سازنده</button>
+                            </div>
+                            <div id="part-manufacturers-list" class="manufacturers-list">
+                                ${renderPartManufacturersList()}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
                 <button class="stage-remove-btn" onclick="removeStage(${idx})">✕</button>
             </div>
@@ -694,9 +729,281 @@ function renderStages() {
             }
         });
         list.append(item);
+
+        if (isExpanded) {
+            loadStageDetails(idx, stage);
+            refreshManufacturersList();
+        }
     });
     updateProgressBar();
     updateCostSummary();
+}
+
+function toggleStageExpand(idx) {
+    expandedStages[idx] = !expandedStages[idx];
+    renderStages();
+}
+
+// ───── Stage Details ─────
+
+function loadStageDetails(idx, stage) {
+    const container = $(`#stage-details-${idx}`);
+    if (!container.length) return;
+    if (stage.id && stage.id.toString().startsWith('s_')) {
+        stage.id = parseInt(stage.id.toString().replace('s_', ''));
+    }
+    if (stage.id && typeof stage.id === 'number') {
+        fetch(`/api/v2/stages/${stage.id}/details`)
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    stageDetailsMap[idx] = res.data;
+                    renderStageDetails(idx);
+                }
+            });
+    } else {
+        stageDetailsMap[idx] = stageDetailsMap[idx] || [];
+        renderStageDetails(idx);
+    }
+}
+
+function renderStageDetails(idx) {
+    const container = $(`#stage-details-${idx}`);
+    if (!container.length) return;
+    const details = stageDetailsMap[idx] || [];
+    if (details.length === 0) {
+        container.html('<div style="font-size:11px;color:var(--text-muted);padding:4px;">هنوز جزئیاتی ثبت نشده. دکمه "افزودن جزئیات" را بزنید.</div>');
+        return;
+    }
+    let html = '';
+    details.forEach((d, di) => {
+        html += `
+            <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;padding:4px;background:var(--bg-secondary);border-radius:4px;">
+                <span style="font-weight:bold;font-size:12px;min-width:18px;">${d.step_number || (di+1)}.</span>
+                <span style="flex:1;font-size:12px;">${escapeHtml(d.description)}</span>
+                <button onclick="editStageDetail(${idx}, ${di})" class="btn-small" style="padding:1px 6px;font-size:10px;">✏️</button>
+                <button onclick="removeStageDetail(${idx}, ${di})" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">✕</button>
+            </div>
+        `;
+    });
+    container.html(html);
+}
+
+function addStageDetail(idx) {
+    const desc = prompt('متن جزئیات جدید:');
+    if (!desc || !desc.trim()) return;
+    const details = stageDetailsMap[idx] = stageDetailsMap[idx] || [];
+    const stepNum = details.length + 1;
+    details.push({ step_number: stepNum, description: desc.trim() });
+    const stage = tempStages[idx];
+    if (stage.id && typeof stage.id === 'number') {
+        fetch('/api/v2/stage-details', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ stage_id: stage.id, step_number: stepNum, description: desc.trim() })
+        }).then(res => res.json()).then(r => {
+            if (r.success) details[details.length-1] = r.data;
+            renderStageDetails(idx);
+        });
+    } else {
+        renderStageDetails(idx);
+    }
+}
+
+function editStageDetail(idx, di) {
+    const details = stageDetailsMap[idx] || [];
+    const d = details[di];
+    if (!d) return;
+    const desc = prompt('ویرایش متن:', d.description);
+    if (!desc || !desc.trim()) return;
+    d.description = desc.trim();
+    if (d.id) {
+        fetch(`/api/v2/stage-details/${d.id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ description: desc.trim(), step_number: d.step_number })
+        });
+    }
+    renderStageDetails(idx);
+}
+
+function removeStageDetail(idx, di) {
+    if (!confirm('حذف شود؟')) return;
+    const details = stageDetailsMap[idx] || [];
+    const d = details[di];
+    if (d && d.id) {
+        fetch(`/api/v2/stage-details/${d.id}`, { method: 'DELETE' });
+    }
+    details.splice(di, 1);
+    details.forEach((dt, i) => dt.step_number = i + 1);
+    renderStageDetails(idx);
+}
+
+// ───── Manufacturers ─────
+
+function loadPartManufacturers(partId) {
+    const pid = parseInt(partId.toString().replace('p', ''));
+    fetch(`/api/v2/parts/${pid}/manufacturers`)
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                partManufacturers = res.data;
+                refreshManufacturersList();
+            }
+        });
+}
+
+function loadAllManufacturers() {
+    fetch('/api/v2/manufacturers')
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) allManufacturers = res.data;
+        });
+}
+
+function renderPartManufacturersList() {
+    if (!partManufacturers || partManufacturers.length === 0) {
+        return '<div style="font-size:11px;color:var(--text-muted);padding:4px;">هیچ سازنده‌ای ثبت نشده</div>';
+    }
+    let html = '';
+    partManufacturers.forEach((m, mi) => {
+        html += `
+            <div class="manufacturer-item" style="margin-bottom:4px;border:1px solid var(--border-color);border-radius:4px;overflow:hidden;">
+                <div class="mfr-header" onclick="toggleMfrExpand(${mi})" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;cursor:pointer;background:var(--bg-secondary);font-size:12px;font-weight:bold;">
+                    <span>${mfrExpandState[mi] ? '▼' : '▶'} ${escapeHtml(m.name)}</span>
+                    <button onclick="event.stopPropagation();removeManufacturerFromPart(${mi})" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">✕</button>
+                </div>
+                <div class="mfr-body" style="${mfrExpandState[mi] ? 'display:block;' : 'display:none;'}padding:8px;font-size:11px;">
+                    ${renderManufacturerInfo(m)}
+                </div>
+            </div>
+        `;
+    });
+    return html;
+}
+
+let mfrExpandState = {};
+
+function refreshManufacturersList() {
+    const container = $('#part-manufacturers-list');
+    if (container.length) {
+        container.html(renderPartManufacturersList());
+    }
+}
+
+function toggleMfrExpand(mi) {
+    mfrExpandState[mi] = !mfrExpandState[mi];
+    refreshManufacturersList();
+}
+
+function renderManufacturerInfo(m) {
+    let html = '';
+    if (m.emails && m.emails.length) {
+        m.emails.forEach(e => {
+            html += `<div style="margin-bottom:2px;">📧 ایمیل: ${escapeHtml(e.email)}</div>`;
+        });
+    }
+    if (m.phones && m.phones.length) {
+        m.phones.forEach(p => {
+            html += `<div style="margin-bottom:2px;">📞 تلفن: ${escapeHtml(p.phone)}</div>`;
+        });
+    }
+    if (m.socials && m.socials.length) {
+        m.socials.forEach(s => {
+            html += `<div style="margin-bottom:2px;">🌐 ${escapeHtml(s.platform)}: ${escapeHtml(s.handle)}</div>`;
+        });
+    }
+    if (m.address) {
+        html += `<div style="margin-bottom:2px;">📍 آدرس: ${escapeHtml(m.address)}</div>`;
+    }
+    if (m.notes) {
+        html += `<div style="margin-bottom:2px;">📝 یادداشت: ${escapeHtml(m.notes)}</div>`;
+    }
+    if (!html) html = '<div style="color:var(--text-muted);">اطلاعاتی ثبت نشده</div>';
+    return html;
+}
+
+function showAddManufacturerToPart() {
+    const unused = allManufacturers.filter(m => !partManufacturers.some(pm => pm.id === m.id));
+    let msg = 'انتخاب سازنده از لیست:\n\n';
+    if (unused.length === 0) {
+        msg += '(همه سازنده‌ها قبلاً اضافه شده‌اند)\n';
+    } else {
+        unused.forEach((m, i) => {
+            msg += `${i+1}. ${m.name}\n`;
+        });
+    }
+    msg += '\nیا -1 برای ایجاد سازنده جدید';
+    const choice = prompt(msg);
+    if (!choice) return;
+    const num = parseInt(choice);
+    if (num === -1) {
+        showCreateManufacturerForm();
+    } else if (num > 0 && num <= unused.length) {
+        addManufacturerToPart(unused[num-1].id);
+    } else {
+        alert('عدد نامعتبر');
+    }
+}
+
+function showCreateManufacturerForm() {
+    const name = prompt('نام سازنده:');
+    if (!name || !name.trim()) return;
+    const phone = prompt('شماره تلفن:') || '';
+    const address = prompt('آدرس:') || '';
+    const notes = prompt('یادداشت:') || '';
+    const emails = [];
+    let email = prompt('ایمیل (خالی برای رد شدن):');
+    if (email && email.trim()) emails.push({ email: email.trim() });
+    const socials = [];
+    let platform = prompt('شبکه اجتماعی (مثلاً Telegram, Instagram) - خالی برای رد شدن:');
+    if (platform && platform.trim()) {
+        const handle = prompt(`آیدی ${platform}:`);
+        if (handle && handle.trim()) socials.push({ platform: platform.trim(), handle: handle.trim() });
+    }
+    fetch('/api/v2/manufacturers', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name: name.trim(), phone, address, notes, emails, socials })
+    }).then(res => res.json()).then(r => {
+        if (r.success) {
+            allManufacturers.push(r.data);
+            addManufacturerToPart(r.data.id);
+        }
+    });
+}
+
+function addManufacturerToPart(mfrId) {
+    const pid = parseInt(currentNodeId.toString().replace('p', ''));
+    fetch(`/api/v2/parts/${pid}/manufacturers`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ manufacturer_id: mfrId })
+    }).then(res => res.json()).then(r => {
+        if (r.success) {
+            partManufacturers.push(r.data);
+            refreshManufacturersList();
+        }
+    });
+}
+
+function removeManufacturerFromPart(mi) {
+    if (!confirm(`حذف "${partManufacturers[mi].name}" از سازندگان این قطعه؟`)) return;
+    const mfr = partManufacturers[mi];
+    const pid = parseInt(currentNodeId.toString().replace('p', ''));
+    fetch(`/api/v2/parts/${pid}/manufacturers/${mfr.id}`, { method: 'DELETE' })
+        .then(res => res.json()).then(r => {
+            if (r.success) {
+                partManufacturers.splice(mi, 1);
+                refreshManufacturersList();
+            }
+        });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function updateCostSummary() {

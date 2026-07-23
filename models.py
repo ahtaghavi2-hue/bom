@@ -192,3 +192,87 @@ class NotificationLog(db.Model):
     sent_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20))
     message = db.Column(db.Text)
+
+# ───── Manufacturers ─────
+
+part_manufacturers = db.Table('part_manufacturers',
+    db.Column('part_id', db.Integer, db.ForeignKey('parts.id'), primary_key=True),
+    db.Column('manufacturer_id', db.Integer, db.ForeignKey('manufacturers.id'), primary_key=True)
+)
+
+class Manufacturer(db.Model):
+    __tablename__ = 'manufacturers'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    phone = db.Column(db.String(50))
+    address = db.Column(db.Text)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    emails = db.relationship('ManufacturerEmail', backref='manufacturer', lazy='dynamic', cascade='all, delete-orphan')
+    socials = db.relationship('ManufacturerSocial', backref='manufacturer', lazy='dynamic', cascade='all, delete-orphan')
+    phones = db.relationship('ManufacturerPhone', backref='manufacturer', lazy='dynamic', cascade='all, delete-orphan')
+
+    parts = db.relationship('Part', secondary=part_manufacturers, backref=db.backref('manufacturers', lazy='dynamic'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'phone': self.phone,
+            'address': self.address,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'emails': [e.to_dict() for e in self.emails.all()],
+            'socials': [s.to_dict() for s in self.socials.all()],
+            'phones': [p.to_dict() for p in self.phones.all()]
+        }
+
+class ManufacturerEmail(db.Model):
+    __tablename__ = 'manufacturer_emails'
+    id = db.Column(db.Integer, primary_key=True)
+    manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'), nullable=False)
+    email = db.Column(db.String(200), nullable=False)
+
+    def to_dict(self):
+        return {'id': self.id, 'email': self.email}
+
+class ManufacturerPhone(db.Model):
+    __tablename__ = 'manufacturer_phones'
+    id = db.Column(db.Integer, primary_key=True)
+    manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'), nullable=False)
+    phone = db.Column(db.String(50), nullable=False)
+
+    def to_dict(self):
+        return {'id': self.id, 'phone': self.phone}
+
+class ManufacturerSocial(db.Model):
+    __tablename__ = 'manufacturer_socials'
+    id = db.Column(db.Integer, primary_key=True)
+    manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'), nullable=False)
+    platform = db.Column(db.String(100), nullable=False)
+    handle = db.Column(db.String(200), nullable=False)
+
+    def to_dict(self):
+        return {'id': self.id, 'platform': self.platform, 'handle': self.handle}
+
+# ───── Stage Details ─────
+
+class StageDetail(db.Model):
+    __tablename__ = 'stage_details'
+    id = db.Column(db.Integer, primary_key=True)
+    stage_id = db.Column(db.Integer, db.ForeignKey('stages.id'), nullable=False)
+    step_number = db.Column(db.Integer, default=0)
+    description = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    stage = db.relationship('Stage', backref=db.backref('details', lazy='dynamic', cascade='all, delete-orphan', order_by='StageDetail.step_number'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'stage_id': self.stage_id,
+            'step_number': self.step_number,
+            'description': self.description,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

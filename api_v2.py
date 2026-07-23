@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, url_for
 from flask_login import login_required, current_user
 from extensions import db
 from models import Product, Assembly, Part, Stage, Image, ProductionSchedule, WorkOrder, NotificationLog
+from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
 from datetime import datetime
 import os
 import uuid
@@ -303,6 +304,144 @@ def dashboard():
             'recent_products': [p.to_dict() for p in Product.query.order_by(Product.created_at.desc()).limit(5).all()]
         }
     })
+
+# ───── Manufacturers ─────
+
+@api_bp.route('/manufacturers', methods=['GET'])
+@login_required
+def list_manufacturers():
+    manufacturers = Manufacturer.query.order_by(Manufacturer.name).all()
+    return jsonify({'success': True, 'data': [m.to_dict() for m in manufacturers]})
+
+@api_bp.route('/manufacturers', methods=['POST'])
+@admin_required
+def create_manufacturer():
+    data = request.get_json()
+    mfr = Manufacturer(name=data.get('name', 'سازنده جدید'))
+    mfr.phone = data.get('phone', '')
+    mfr.address = data.get('address', '')
+    mfr.notes = data.get('notes', '')
+    db.session.add(mfr)
+    db.session.flush()
+    for email in data.get('emails', []):
+        if email.get('email', '').strip():
+            db.session.add(ManufacturerEmail(manufacturer_id=mfr.id, email=email['email'].strip()))
+    for phone in data.get('phones', []):
+        if phone.get('phone', '').strip():
+            db.session.add(ManufacturerPhone(manufacturer_id=mfr.id, phone=phone['phone'].strip()))
+    for social in data.get('socials', []):
+        if social.get('platform', '').strip() and social.get('handle', '').strip():
+            db.session.add(ManufacturerSocial(manufacturer_id=mfr.id, platform=social['platform'].strip(), handle=social['handle'].strip()))
+    db.session.commit()
+    return jsonify({'success': True, 'data': mfr.to_dict()}), 201
+
+@api_bp.route('/manufacturers/<int:mfr_id>', methods=['PUT'])
+@admin_required
+def update_manufacturer(mfr_id):
+    mfr = Manufacturer.query.get_or_404(mfr_id)
+    data = request.get_json()
+    if 'name' in data: mfr.name = data['name']
+    if 'phone' in data: mfr.phone = data['phone']
+    if 'address' in data: mfr.address = data['address']
+    if 'notes' in data: mfr.notes = data['notes']
+    if 'emails' in data:
+        ManufacturerEmail.query.filter_by(manufacturer_id=mfr.id).delete()
+        for email in data['emails']:
+            if email.get('email', '').strip():
+                db.session.add(ManufacturerEmail(manufacturer_id=mfr.id, email=email['email'].strip()))
+    if 'phones' in data:
+        ManufacturerPhone.query.filter_by(manufacturer_id=mfr.id).delete()
+        for phone in data['phones']:
+            if phone.get('phone', '').strip():
+                db.session.add(ManufacturerPhone(manufacturer_id=mfr.id, phone=phone['phone'].strip()))
+    if 'socials' in data:
+        ManufacturerSocial.query.filter_by(manufacturer_id=mfr.id).delete()
+        for social in data['socials']:
+            if social.get('platform', '').strip() and social.get('handle', '').strip():
+                db.session.add(ManufacturerSocial(manufacturer_id=mfr.id, platform=social['platform'].strip(), handle=social['handle'].strip()))
+    db.session.commit()
+    return jsonify({'success': True, 'data': mfr.to_dict()})
+
+@api_bp.route('/manufacturers/<int:mfr_id>', methods=['DELETE'])
+@admin_required
+def delete_manufacturer(mfr_id):
+    mfr = Manufacturer.query.get_or_404(mfr_id)
+    db.session.delete(mfr)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'سازنده حذف شد'})
+
+# ───── Part-Manufacturer Association ─────
+
+@api_bp.route('/parts/<int:part_id>/manufacturers', methods=['GET'])
+@login_required
+def list_part_manufacturers(part_id):
+    part = Part.query.get_or_404(part_id)
+    return jsonify({'success': True, 'data': [m.to_dict() for m in part.manufacturers.all()]})
+
+@api_bp.route('/parts/<int:part_id>/manufacturers', methods=['POST'])
+@admin_required
+def add_part_manufacturer(part_id):
+    part = Part.query.get_or_404(part_id)
+    data = request.get_json()
+    mfr_id = data.get('manufacturer_id')
+    if not mfr_id:
+        return jsonify({'error': 'شناسه سازنده الزامی است'}), 400
+    mfr = Manufacturer.query.get(mfr_id)
+    if not mfr:
+        return jsonify({'error': 'سازنده یافت نشد'}), 404
+    if mfr in part.manufacturers.all():
+        return jsonify({'success': True, 'message': 'قبلاً اضافه شده'})
+    part.manufacturers.append(mfr)
+    db.session.commit()
+    return jsonify({'success': True, 'data': mfr.to_dict()}), 201
+
+@api_bp.route('/parts/<int:part_id>/manufacturers/<int:mfr_id>', methods=['DELETE'])
+@admin_required
+def remove_part_manufacturer(part_id, mfr_id):
+    part = Part.query.get_or_404(part_id)
+    mfr = Manufacturer.query.get_or_404(mfr_id)
+    part.manufacturers.remove(mfr)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'سازنده حذف شد'})
+
+# ───── Stage Details ─────
+
+@api_bp.route('/stages/<int:stage_id>/details', methods=['GET'])
+@login_required
+def list_stage_details(stage_id):
+    details = StageDetail.query.filter_by(stage_id=stage_id).order_by(StageDetail.step_number).all()
+    return jsonify({'success': True, 'data': [d.to_dict() for d in details]})
+
+@api_bp.route('/stage-details', methods=['POST'])
+@admin_required
+def create_stage_detail():
+    data = request.get_json()
+    detail = StageDetail(
+        stage_id=data['stage_id'],
+        step_number=data.get('step_number', 1),
+        description=data.get('description', '')
+    )
+    db.session.add(detail)
+    db.session.commit()
+    return jsonify({'success': True, 'data': detail.to_dict()}), 201
+
+@api_bp.route('/stage-details/<int:detail_id>', methods=['PUT'])
+@admin_required
+def update_stage_detail(detail_id):
+    detail = StageDetail.query.get_or_404(detail_id)
+    data = request.get_json()
+    if 'step_number' in data: detail.step_number = data['step_number']
+    if 'description' in data: detail.description = data['description']
+    db.session.commit()
+    return jsonify({'success': True, 'data': detail.to_dict()})
+
+@api_bp.route('/stage-details/<int:detail_id>', methods=['DELETE'])
+@admin_required
+def delete_stage_detail(detail_id):
+    detail = StageDetail.query.get_or_404(detail_id)
+    db.session.delete(detail)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'جزئیات مرحله حذف شد'})
 
 # ───── Helpers ─────
 
