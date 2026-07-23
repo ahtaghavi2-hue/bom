@@ -842,7 +842,8 @@ function removeStageDetail(idx, di) {
 // ───── Manufacturers ─────
 
 function loadPartManufacturers(partId) {
-    const pid = parseInt(partId.toString().replace('p', ''));
+    const pid = parseInt(partId.toString().replace(/^[a-z]/, ''));
+    if (isNaN(pid)) return;
     fetch(`/api/v2/parts/${pid}/manufacturers`)
         .then(res => res.json())
         .then(res => {
@@ -850,7 +851,7 @@ function loadPartManufacturers(partId) {
                 partManufacturers = res.data;
                 refreshManufacturersList();
             }
-        });
+        }).catch(e => console.error('loadPartManufacturers error:', e));
 }
 
 function loadAllManufacturers() {
@@ -969,12 +970,17 @@ function showCreateManufacturerForm() {
         if (r.success) {
             allManufacturers.push(r.data);
             addManufacturerToPart(r.data.id);
+        } else {
+            alert('خطا در ایجاد سازنده: ' + (r.error || 'نامشخص'));
         }
+    }).catch(e => {
+        alert('خطا در ارتباط با سرور: ' + e.message);
     });
 }
 
 function addManufacturerToPart(mfrId) {
-    const pid = parseInt(currentNodeId.toString().replace('p', ''));
+    const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
+    if (isNaN(pid)) { alert('خطا: قطعه شناسه معتبری ندارد'); return; }
     fetch(`/api/v2/parts/${pid}/manufacturers`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -983,20 +989,30 @@ function addManufacturerToPart(mfrId) {
         if (r.success) {
             partManufacturers.push(r.data);
             refreshManufacturersList();
+        } else {
+            alert('خطا: ' + (r.error || 'نامشخص'));
         }
+    }).catch(e => {
+        alert('خطا در ارتباط با سرور: ' + e.message);
     });
 }
 
 function removeManufacturerFromPart(mi) {
     if (!confirm(`حذف "${partManufacturers[mi].name}" از سازندگان این قطعه؟`)) return;
     const mfr = partManufacturers[mi];
-    const pid = parseInt(currentNodeId.toString().replace('p', ''));
+    const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
+    if (isNaN(pid)) return;
     fetch(`/api/v2/parts/${pid}/manufacturers/${mfr.id}`, { method: 'DELETE' })
         .then(res => res.json()).then(r => {
             if (r.success) {
                 partManufacturers.splice(mi, 1);
+                mfrExpandState[mi] = false;
                 refreshManufacturersList();
+            } else {
+                alert('خطا: ' + (r.error || 'نامشخص'));
             }
+        }).catch(e => {
+            alert('خطا در ارتباط با سرور: ' + e.message);
         });
 }
 
