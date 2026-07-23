@@ -9,6 +9,7 @@ let stageDetailsMap = {};
 let partManufacturers = [];
 let allManufacturers = [];
 let expandedStages = {};
+let _autoSaveTimer = null;
 
 $(document).ready(function() {
     // بارگذاری تم ذخیره‌شده
@@ -465,6 +466,50 @@ function switchTab(tabId) {
     $(`#${tabId}`).addClass('active');
 }
 
+// ───── Auto-save ─────
+
+function autoSaveNode() {
+    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = setTimeout(function() {
+        _autoSaveTimer = null;
+        _doSaveNode();
+    }, 600);
+}
+
+function _doSaveNode() {
+    if (!currentNodeId) return;
+    const node = currentData.nodes[currentNodeId];
+    if (!node) return;
+    const updatedData = {
+        name: $('#field-name').val(), partCode: $('#field-partCode').val(), specs: $('#field-specs').val(),
+        notes: $('#field-notes').val(),
+        required_quantity: parseInt($('#field-required_quantity').val()) || 1,
+        quantity: parseInt($('#field-quantity').val()) || 0,
+        images: node.images || [],
+        supplier: $('#field-supplier').val(),
+        supplier_email: $('#field-supplier-email').val(),
+        status: node.status || 'not_started'
+    };
+    if (node.type === 'product') {
+        updatedData.order_count = parseInt($('#field-order_count').val()) || 0;
+    }
+    if (node.type === 'part') {
+        updatedData.partType = $('#field-partType').val();
+        updatedData.stages = tempStages;
+    }
+    fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
+    .then(() => { loadData(); });
+}
+
+function bindAutoSave() {
+    $('#field-name, #field-partCode, #field-specs, #field-notes, #field-order_count, #field-required_quantity, #field-quantity, #field-supplier, #field-supplier-email, #field-partType').off('.autosave').on('change.autosave keyup.autosave', function() {
+        autoSaveNode();
+    });
+    $('#field-name, #field-partCode, #field-supplier, #field-supplier-email').off('.autosaveEnter').on('keypress.autosaveEnter', function(e) {
+        if (e.which === 13) { e.preventDefault(); autoSaveNode(); }
+    });
+}
+
 function showEditForm(node) {
     $('#no-selection').hide();
     $('#edit-form').show();
@@ -553,6 +598,7 @@ function showEditForm(node) {
             switchTab('tab-general');
         }
     }
+    bindAutoSave();
 }
 
 function updateProgressBar() {
@@ -607,6 +653,7 @@ function addImageToGallery(input) {
                     node.images.push({ url: data.url, label: label || 'تصویر' });
                     renderImageGallery(node.images);
                     currentInput.value = '';
+                    autoSaveNode();
                 });
         });
     }
@@ -618,6 +665,7 @@ function removeImage(index) {
         const node = currentData.nodes[currentNodeId];
         node.images.splice(index, 1);
         renderImageGallery(node.images);
+        autoSaveNode();
     });
 }
 
@@ -686,10 +734,10 @@ function renderStages() {
                         </div>
                     </div>
                     <div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
-                        <span title="هزینه مواد برآوردی">💰 مواد: <input type="number" step="1000" value="${matCost}" onchange="tempStages[${idx}].estimated_material_cost=Number(this.value);updateCostSummary()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="دستمزد برآوردی">🔧 دستمزد: <input type="number" step="1000" value="${laborCost}" onchange="tempStages[${idx}].estimated_labor_cost=Number(this.value);updateCostSummary()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="سربار برآوردی">📋 سربار: <input type="number" step="1000" value="${overhead}" onchange="tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="ساعت برآوردی">⏱ ساعت: <input type="number" step="0.5" value="${hours}" onchange="tempStages[${idx}].estimated_hours=Number(this.value);updateCostSummary()" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="هزینه مواد برآوردی">💰 مواد: <input type="number" step="1000" value="${matCost}" onchange="tempStages[${idx}].estimated_material_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="دستمزد برآوردی">🔧 دستمزد: <input type="number" step="1000" value="${laborCost}" onchange="tempStages[${idx}].estimated_labor_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="سربار برآوردی">📋 سربار: <input type="number" step="1000" value="${overhead}" onchange="tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="ساعت برآوردی">⏱ ساعت: <input type="number" step="0.5" value="${hours}" onchange="tempStages[${idx}].estimated_hours=Number(this.value);updateCostSummary();autoSaveNode()" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
                     </div>
 
                     ${isExpanded ? `
@@ -729,6 +777,7 @@ function renderStages() {
                 const movedItem = tempStages.splice(fromIdx, 1)[0];
                 tempStages.splice(toIdx, 0, movedItem);
                 renderStages();
+                autoSaveNode();
             }
         });
         list.append(item);
@@ -1145,6 +1194,7 @@ function updateCostSummary() {
 function setStageStatus(idx, status) {
     tempStages[idx].status = status;
     renderStages();
+    autoSaveNode();
 }
 
 function addStage() {
@@ -1153,11 +1203,16 @@ function addStage() {
     tempStages.push({ name: name, status: 'not_started', estimated_material_cost: 0, estimated_labor_cost: 0, estimated_overhead: 0, estimated_hours: 0 });
     $('#new-stage-name').val('');
     renderStages();
+    autoSaveNode();
 }
 
 function removeStage(idx) {
-    tempStages.splice(idx, 1);
-    renderStages();
+    showConfirmModal('حذف مرحله "' + tempStages[idx].name + '"؟', function(ok) {
+        if (!ok) return;
+        tempStages.splice(idx, 1);
+        renderStages();
+        autoSaveNode();
+    });
 }
 
 // Inline Edit
@@ -1231,27 +1286,7 @@ function deleteNode() {
 }
 
 function saveNode() {
-    if (!currentNodeId) { showAlertModal('ابتدا یک گره را انتخاب کنید'); return; }
-    const node = currentData.nodes[currentNodeId];
-    const updatedData = {
-        name: $('#field-name').val(), partCode: $('#field-partCode').val(), specs: $('#field-specs').val(),
-        notes: $('#field-notes').val(),
-        required_quantity: parseInt($('#field-required_quantity').val()) || 1,
-        quantity: parseInt($('#field-quantity').val()) || 0,
-        images: node.images || [],
-        supplier: $('#field-supplier').val(),
-        supplier_email: $('#field-supplier-email').val(),
-        status: node.status || 'not_started'
-    };
-    if (node.type === 'product') {
-        updatedData.order_count = parseInt($('#field-order_count').val()) || 0;
-    }
-    if (node.type === 'part') {
-        updatedData.partType = $('#field-partType').val();
-        updatedData.stages = tempStages;
-    }
-    fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
-    .then(() => { showAlertModal('✅ ذخیره شد'); loadData(); });
+    autoSaveNode();
 }
 
 function exportExcel() {
