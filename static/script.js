@@ -470,6 +470,7 @@ function switchTab(tabId) {
 
 function autoSaveNode() {
     if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    $('#save-indicator').text('⏳').fadeIn(150);
     _autoSaveTimer = setTimeout(function() {
         _autoSaveTimer = null;
         _doSaveNode();
@@ -498,7 +499,14 @@ function _doSaveNode() {
         updatedData.stages = tempStages;
     }
     fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
-    .then(() => { loadData(); });
+    .then(() => {
+        loadData();
+        $('#save-indicator').text('✅').fadeIn(150).delay(1200).fadeOut(300);
+    })
+    .catch(e => {
+        $('#save-indicator').text('❌').fadeIn(150).delay(1500).fadeOut(300);
+        showToast('خطا در ذخیره: ' + e.message, true);
+    });
 }
 
 function bindAutoSave() {
@@ -1541,6 +1549,14 @@ function closeProductSelectModal() {
     $('#product-select-modal').fadeOut(150);
 }
 
+// ───── Toast Notification ─────
+function showToast(message, isError) {
+    $('.toast').remove();
+    const toast = $(`<div class="toast" style="background:${isError ? 'var(--accent-red)' : 'var(--accent-green)'};">${isError ? '✕' : '✅'} ${message}</div>`);
+    $('body').append(toast);
+    setTimeout(() => toast.remove(), 2500);
+}
+
 // ───── Schedule Modal ─────
 function showScheduleModal() {
     $('#sched-quantity').val(1);
@@ -1572,7 +1588,7 @@ function submitScheduleModal() {
         })
     }).then(res => res.json()).then(() => {
         $('#schedule-modal').fadeOut(150);
-        showAlertModal('✅ برنامه تولید با موفقیت ثبت شد');
+        showToast('برنامه تولید با موفقیت ثبت شد');
         loadSchedulesForProduct(currentNodeId);
     }).catch(e => showAlertModal('خطا: ' + e.message));
 }
