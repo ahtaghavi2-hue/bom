@@ -11,7 +11,290 @@ let allManufacturers = [];
 let expandedStages = {};
 let _autoSaveTimer = null;
 
+// ───── Language / i18n ─────
+const LANG = {
+    fa: {
+        name: 'فارسی',
+        save: 'ذخیره',
+        saving: 'در حال ذخیره...',
+        saved: 'ذخیره شد',
+        error: 'خطا',
+        cancel: 'انصراف',
+        confirm: 'تأیید',
+        ok: 'باشه',
+        yes: 'بله',
+        no: 'خیر',
+        delete: 'حذف',
+        add: 'افزودن',
+        edit: 'ویرایش',
+        close: 'بستن',
+        search: 'جستجو',
+        product: 'محصول',
+        assembly: 'زیرمجموعه',
+        part: 'قطعه',
+        newProduct: 'محصول جدید',
+        newAssembly: 'زیرمجموعه جدید',
+        newPart: 'قطعه جدید',
+        name: 'نام',
+        partCode: 'کد فنی',
+        specs: 'مشخصات فنی',
+        notes: 'یادداشت',
+        quantity: 'تعداد',
+        requiredQuantity: 'تعداد مورد نیاز',
+        stock: 'موجودی',
+        supplier: 'تأمین‌کننده',
+        supplierEmail: 'ایمیل تأمین‌کننده',
+        type: 'نوع',
+        buy: 'خریدنی',
+        make: 'ساختنی',
+        status: 'وضعیت',
+        notStarted: 'شروع نشده',
+        inProgress: 'در حال اجرا',
+        completed: 'تکمیل شده',
+        shortage: 'کسری موجودی',
+        partialStock: 'موجودی ناقص',
+        sufficient: 'موجودی کافی',
+        noStages: 'هنوز مرحله‌ای تعریف نشده',
+        addStage: 'افزودن مرحله',
+        stageName: 'نام مرحله',
+        stageDetails: 'جزئیات تولید',
+        addDetail: 'افزودن جزئیات',
+        manufacturers: 'سازندگان قطعه',
+        addManufacturer: 'افزودن سازنده',
+        noManufacturer: 'هیچ سازنده‌ای ثبت نشده',
+        createManufacturer: 'ایجاد سازنده جدید',
+        selectManufacturer: 'انتخاب سازنده',
+        allAdded: 'همه سازنده‌ها قبلاً اضافه شده‌اند',
+        confirmDelete: 'آیا از حذف مطمئن هستید؟',
+        saveSuccess: 'با موفقیت ذخیره شد',
+        saveError: 'خطا در ذخیره',
+        loading: 'در حال بارگذاری...',
+        noSelection: 'یک گره از درخت را انتخاب کنید',
+        noDocuments: 'هیچ مدرک فنی بارگذاری نشده',
+        noSchedules: 'برنامه‌ای ثبت نشده',
+        noImages: 'بدون عکس',
+        material: 'مواد',
+        labor: 'دستمزد',
+        overhead: 'سربار',
+        hours: 'ساعت',
+        total: 'مجموع',
+        cost: 'هزینه',
+        email: 'ایمیل',
+        phone: 'تلفن',
+        address: 'آدرس',
+        social: 'شبکه اجتماعی',
+        platform: 'پلتفرم',
+        handle: 'آیدی',
+        productStructure: 'ساختار محصول',
+        treeView: 'درختی',
+        kanbanView: 'کانبان',
+        excelExport: 'Excel',
+        schematicExport: 'شماتیک',
+        settings: 'تنظیمات',
+        logout: 'خروج',
+        notifications: 'اعلان‌ها',
+        noNotification: 'هیچ اعلانی وجود ندارد',
+        dashboard: 'داشبورد',
+        schedule: 'برنامه تولید',
+        addSchedule: 'برنامه جدید',
+        techDocs: 'مدارک فنی',
+        images: 'تصاویر',
+        inventory: 'انبار',
+        manufacturing: 'ساخت',
+        general: 'عمومی',
+        detailText: 'متن جزئیات',
+        orderCount: 'تعداد سفارش',
+        totalRequired: 'تعداد مورد نیاز کل',
+        progress: 'پیشرفت مراحل ساخت',
+        completedCount: 'تکمیل شده',
+        remainingCount: 'باقی‌مانده',
+        newSchedule: 'برنامه تولید جدید',
+        scheduleQuantity: 'تعداد سفارش',
+        startDate: 'تاریخ شروع',
+        endDate: 'تاریخ پایان',
+        productForExport: 'انتخاب محصول برای خروجی',
+        noProduct: 'هیچ محصولی تعریف نشده',
+        invalidNumber: 'عدد نامعتبر',
+        stageRequired: 'لطفاً نام مرحله را وارد کنید',
+        nameRequired: 'نام الزامی است',
+        selectNode: 'ابتدا یک گره را انتخاب کنید',
+        partNoChildren: 'قطعه نمی‌تواند زیرمجموعه داشته باشد',
+        langToggle: 'English',
+        langDir: 'rtl',
+        imageLabel: 'برچسب عکس',
+        imageLabelDefault: 'تصویر',
+    },
+    en: {
+        name: 'English',
+        save: 'Save',
+        saving: 'Saving...',
+        saved: 'Saved',
+        error: 'Error',
+        cancel: 'Cancel',
+        confirm: 'Confirm',
+        ok: 'OK',
+        yes: 'Yes',
+        no: 'No',
+        delete: 'Delete',
+        add: 'Add',
+        edit: 'Edit',
+        close: 'Close',
+        search: 'Search',
+        product: 'Product',
+        assembly: 'Assembly',
+        part: 'Part',
+        newProduct: 'New Product',
+        newAssembly: 'New Assembly',
+        newPart: 'New Part',
+        name: 'Name',
+        partCode: 'Part Code',
+        specs: 'Specifications',
+        notes: 'Notes',
+        quantity: 'Quantity',
+        requiredQuantity: 'Required Qty',
+        stock: 'Stock',
+        supplier: 'Supplier',
+        supplierEmail: 'Supplier Email',
+        type: 'Type',
+        buy: 'Buy',
+        make: 'Make',
+        status: 'Status',
+        notStarted: 'Not Started',
+        inProgress: 'In Progress',
+        completed: 'Completed',
+        shortage: 'Stock Shortage',
+        partialStock: 'Partial Stock',
+        sufficient: 'Sufficient Stock',
+        noStages: 'No stages defined yet',
+        addStage: 'Add Stage',
+        stageName: 'Stage Name',
+        stageDetails: 'Production Details',
+        addDetail: 'Add Detail',
+        manufacturers: 'Part Manufacturers',
+        addManufacturer: 'Add Manufacturer',
+        noManufacturer: 'No manufacturer registered',
+        createManufacturer: 'Create New Manufacturer',
+        selectManufacturer: 'Select Manufacturer',
+        allAdded: 'All manufacturers already added',
+        confirmDelete: 'Are you sure you want to delete?',
+        saveSuccess: 'Saved successfully',
+        saveError: 'Save error',
+        loading: 'Loading...',
+        noSelection: 'Select a node from the tree',
+        noDocuments: 'No technical documents uploaded',
+        noSchedules: 'No schedules registered',
+        noImages: 'No images',
+        material: 'Material',
+        labor: 'Labor',
+        overhead: 'Overhead',
+        hours: 'Hours',
+        total: 'Total',
+        cost: 'Cost',
+        email: 'Email',
+        phone: 'Phone',
+        address: 'Address',
+        social: 'Social Media',
+        platform: 'Platform',
+        handle: 'ID',
+        productStructure: 'Product Structure',
+        treeView: 'Tree',
+        kanbanView: 'Kanban',
+        excelExport: 'Excel',
+        schematicExport: 'Schematic',
+        settings: 'Settings',
+        logout: 'Logout',
+        notifications: 'Notifications',
+        noNotification: 'No notifications',
+        dashboard: 'Dashboard',
+        schedule: 'Schedule',
+        addSchedule: 'New Schedule',
+        techDocs: 'Tech Docs',
+        images: 'Images',
+        inventory: 'Inventory',
+        manufacturing: 'Manufacturing',
+        general: 'General',
+        detailText: 'Detail Text',
+        orderCount: 'Order Count',
+        totalRequired: 'Total Required',
+        progress: 'Production Progress',
+        completedCount: 'Completed',
+        remainingCount: 'Remaining',
+        newSchedule: 'New Production Schedule',
+        scheduleQuantity: 'Order Quantity',
+        startDate: 'Start Date',
+        endDate: 'End Date',
+        productForExport: 'Select Product',
+        noProduct: 'No products defined',
+        invalidNumber: 'Invalid number',
+        stageRequired: 'Please enter a stage name',
+        nameRequired: 'Name is required',
+        selectNode: 'Please select a node first',
+        partNoChildren: 'Part cannot have children',
+        langToggle: 'فارسی',
+        langDir: 'ltr',
+        imageLabel: 'Image Label',
+        imageLabelDefault: 'Image',
+    }
+};
+
+let currentLang = localStorage.getItem('appLang') || 'fa';
+
+function t(key) {
+    return LANG[currentLang][key] || key;
+}
+
+function toggleLang() {
+    currentLang = currentLang === 'fa' ? 'en' : 'fa';
+    localStorage.setItem('appLang', currentLang);
+    document.documentElement.setAttribute('dir', t('langDir'));
+    applyLang();
+}
+
+function applyLang() {
+    document.documentElement.setAttribute('dir', t('langDir'));
+    $('#lang-toggle').text(t('langToggle'));
+    $('#app-title').text(currentLang === 'fa' ? '🏭 سیستم مدیریت ساخت محصول' : '🏭 BOM & Production Manager');
+    $('#settings-link').text('⚙ ' + t('settings'));
+    $('#logout-link').text(t('logout'));
+    $('#tree-panel-title').text(t('productStructure'));
+    $('#btn-view-tree').text(' ' + t('treeView'));
+    $('#btn-view-kanban').text(' ' + t('kanbanView'));
+    $('#btn-excel').text('📊 ' + t('excelExport'));
+    $('#btn-schematic').text('📐 ' + t('schematicExport'));
+    $('#no-selection p').text('👈 ' + t('noSelection'));
+    $('#tab-btn-general').text(t('general'));
+    $('#tab-btn-images').text('️ ' + t('images'));
+    $('#tab-btn-inventory').text('📦 ' + t('inventory'));
+    $('#tab-btn-mfg').text('⚙️ ' + t('manufacturing'));
+    $('#tab-btn-schedule').text('📅 ' + t('schedule'));
+    $('#tab-btn-docs').text('📁 ' + t('techDocs'));
+    $('#field-name-label').text(t('name'));
+    $('#field-partCode-label').text(t('partCode'));
+    $('#field-specs-label').text(t('specs'));
+    $('#field-notes-label').text(t('notes'));
+    $('#field-required_quantity-label').text(t('requiredQuantity'));
+    $('#field-quantity-label').text(t('stock'));
+    $('#field-order_count-label').text(t('orderCount'));
+    $('#field-total_required-label').text(t('totalRequired'));
+    $('#field-supplier-label').text(t('supplier'));
+    $('#field-supplier-email-label').text(t('supplierEmail'));
+    $('#field-partType-label').text(t('type'));
+    $('#btn-add-assembly').text('📦 ' + t('newAssembly'));
+    $('#btn-add-part').text('⚙️ ' + t('newPart'));
+    $('#btn-delete').innerHTML = '️ ' + t('delete');
+    $('#add-image-label').text(t('images'));
+    $('#add-doc-label').text(t('techDocs'));
+    $('#part-email-label').text(t('supplierEmail'));
+    $('#progress-label').text(t('progress'));
+    updateProgressBar();
+}
+
 $(document).ready(function() {
+    const savedLang = localStorage.getItem('appLang') || 'fa';
+    currentLang = savedLang;
+    document.documentElement.setAttribute('dir', t('langDir'));
+    applyLang();
+
     // بارگذاری تم ذخیره‌شده
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -22,13 +305,15 @@ $(document).ready(function() {
 
     const actionsDiv = document.querySelector('.form-actions');
     const btnAddAssembly = document.createElement('button');
-    btnAddAssembly.textContent = '📦 افزودن زیرمجموعه';
+    btnAddAssembly.textContent = '📦 ' + (window.t ? t('newAssembly') : 'افزودن زیرمجموعه');
+    btnAddAssembly.id = 'btn-add-assembly';
     btnAddAssembly.className = 'btn-add';
     btnAddAssembly.style.background = '#3498db';
     btnAddAssembly.onclick = () => addChildOf('assembly');
 
     const btnAddPart = document.createElement('button');
-    btnAddPart.textContent = '⚙️ افزودن قطعه';
+    btnAddPart.textContent = '⚙️ ' + (window.t ? t('newPart') : 'افزودن قطعه');
+    btnAddPart.id = 'btn-add-part';
     btnAddPart.className = 'btn-add';
     btnAddPart.style.background = '#9b59b6';
     btnAddPart.onclick = () => addChildOf('part');
@@ -729,40 +1014,40 @@ function renderStages() {
         const stageKey = stage.id ? `s_${stage.id}` : `idx_${idx}`;
 
         const item = $(`
-            <div class="stage-item-new" draggable="true" data-index="${idx}">
-                <span style="cursor: grab; color:var(--text-muted);">☰</span>
+            <div class="stage-item-new" data-index="${idx}">
+                <span class="stage-drag-handle" style="cursor: grab; color:var(--text-muted);" draggable="true">☰</span>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span class="stage-expand-btn" onclick="toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);">${isExpanded ? '▼' : '▶'}</span>
+                        <span class="stage-expand-btn" onclick="event.stopPropagation();toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);user-select:none;">${isExpanded ? '▼' : '▶'}</span>
                         <span class="stage-name">${stage.name}</span>
                         <div class="stage-status-btns">
-                            <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="setStageStatus(${idx}, 'not_started')" title="شروع نشده">🔴</button>
-                            <button class="stage-status-btn ${status === 'in_progress' ? 'active-in-progress' : ''}" onclick="setStageStatus(${idx}, 'in_progress')" title="جاری شده">🟡</button>
-                            <button class="stage-status-btn ${status === 'completed' ? 'active-completed' : ''}" onclick="setStageStatus(${idx}, 'completed')" title="ساخته شده">🟢</button>
+                            <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="event.stopPropagation();setStageStatus(${idx}, 'not_started')" title="${currentLang === 'fa' ? 'شروع نشده' : 'Not Started'}">🔴</button>
+                            <button class="stage-status-btn ${status === 'in_progress' ? 'active-in-progress' : ''}" onclick="event.stopPropagation();setStageStatus(${idx}, 'in_progress')" title="${currentLang === 'fa' ? 'جاری شده' : 'In Progress'}">🟡</button>
+                            <button class="stage-status-btn ${status === 'completed' ? 'active-completed' : ''}" onclick="event.stopPropagation();setStageStatus(${idx}, 'completed')" title="${currentLang === 'fa' ? 'ساخته شده' : 'Completed'}">🟢</button>
                         </div>
                     </div>
                     <div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
-                        <span title="هزینه مواد برآوردی">💰 مواد: <input type="number" step="1000" value="${matCost}" onchange="tempStages[${idx}].estimated_material_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="دستمزد برآوردی">🔧 دستمزد: <input type="number" step="1000" value="${laborCost}" onchange="tempStages[${idx}].estimated_labor_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="سربار برآوردی">📋 سربار: <input type="number" step="1000" value="${overhead}" onchange="tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
-                        <span title="ساعت برآوردی">⏱ ساعت: <input type="number" step="0.5" value="${hours}" onchange="tempStages[${idx}].estimated_hours=Number(this.value);updateCostSummary();autoSaveNode()" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="${currentLang === 'fa' ? 'هزینه مواد برآوردی' : 'Est. Material Cost'}">💰 ${t('material')}: <input type="number" step="1000" value="${matCost}" onchange="event.stopPropagation();tempStages[${idx}].estimated_material_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="${currentLang === 'fa' ? 'دستمزد برآوردی' : 'Est. Labor Cost'}">🔧 ${t('labor')}: <input type="number" step="1000" value="${laborCost}" onchange="event.stopPropagation();tempStages[${idx}].estimated_labor_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="${currentLang === 'fa' ? 'سربار برآوردی' : 'Est. Overhead'}">📋 ${t('overhead')}: <input type="number" step="1000" value="${overhead}" onchange="event.stopPropagation();tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
+                        <span title="${currentLang === 'fa' ? 'ساعت برآوردی' : 'Est. Hours'}">⏱ ${t('hours')}: <input type="number" step="0.5" value="${hours}" onchange="event.stopPropagation();tempStages[${idx}].estimated_hours=Number(this.value);updateCostSummary();autoSaveNode()" style="width:50px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
                     </div>
 
                     ${isExpanded ? `
                     <div class="stage-expanded" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-color);">
                         <div style="background:var(--bg-tertiary);padding:8px;border-radius:6px;margin-bottom:8px;">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                                <strong style="font-size:12px;"> جزئیات تولید</strong>
-                                <button onclick="addStageDetail(${idx})" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ افزودن جزئیات</button>
+                                <strong style="font-size:12px;"> ${t('stageDetails')}</strong>
+                                <button onclick="addStageDetail(${idx})" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ ${t('addDetail')}</button>
                             </div>
                             <div id="stage-details-${idx}" class="stage-details-list">
-                                <div style="font-size:11px;color:var(--text-muted);padding:4px;">در حال بارگذاری...</div>
+                                <div style="font-size:11px;color:var(--text-muted);padding:4px;">${t('loading')}</div>
                             </div>
                         </div>
                         <div style="background:var(--bg-tertiary);padding:8px;border-radius:6px;">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                                <strong style="font-size:12px;">🏭 سازندگان قطعه</strong>
-                                <button onclick="showAddManufacturerToPart()" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ افزودن سازنده</button>
+                                <strong style="font-size:12px;">🏭 ${t('manufacturers')}</strong>
+                                <button onclick="showAddManufacturerToPart()" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ ${t('addManufacturer')}</button>
                             </div>
                             <div id="part-manufacturers-list" class="manufacturers-list">
                                 ${renderPartManufacturersList()}
@@ -774,14 +1059,15 @@ function renderStages() {
                 <button class="stage-remove-btn" onclick="removeStage(${idx})">✕</button>
             </div>
         `);
-        item.on('dragstart', function(e) { $(this).addClass('dragging'); e.originalEvent.dataTransfer.setData('text/plain', idx); });
-        item.on('dragend', function() { $(this).removeClass('dragging'); });
+        const handle = item.find('.stage-drag-handle');
+        handle.on('dragstart', function(e) { $(this).closest('.stage-item-new').addClass('dragging'); e.originalEvent.dataTransfer.setData('text/plain', idx); });
+        handle.on('dragend', function() { $(this).closest('.stage-item-new').removeClass('dragging'); });
         item.on('dragover', function(e) { e.preventDefault(); });
         item.on('drop', function(e) {
             e.preventDefault();
             const fromIdx = parseInt(e.originalEvent.dataTransfer.getData('text/plain'));
             const toIdx = parseInt($(this).data('index'));
-            if (fromIdx !== toIdx) {
+            if (fromIdx !== toIdx && !isNaN(fromIdx)) {
                 const movedItem = tempStages.splice(fromIdx, 1)[0];
                 tempStages.splice(toIdx, 0, movedItem);
                 renderStages();

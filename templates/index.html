@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html id="main-html" lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>سیستم مدیریت BOM و تولید</title>
+    <title id="page-title">سیستم مدیریت BOM و تولید</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
 </head>
@@ -10,17 +10,18 @@
     <!-- هدر با کنترل‌های اصلی -->
     <header class="app-header">
         <div class="header-right">
-            <h1 class="app-title">🏭 سیستم مدیریت ساخت محصول</h1>
+            <h1 class="app-title" id="app-title">🏭 سیستم مدیریت ساخت محصول</h1>
         </div>
         <div class="header-left">
             <span id="save-indicator" style="display:none;color:rgba(255,255,255,0.7);font-size:12px;min-width:20px;"></span>
             <span style="color:rgba(255,255,255,0.7);font-size:13px;">{{ current_user.username }}</span>
+            <button class="header-btn" onclick="toggleLang()" id="lang-toggle" title="Language">EN</button>
             <button class="header-btn" onclick="toggleTheme()" id="theme-toggle" title="تغییر تم">🌙</button>
             <button class="header-btn notification-btn" onclick="toggleNotifications()" id="notif-btn">
                  <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
             </button>
-            <a href="{{ url_for('settings_page') }}" class="header-btn" style="text-decoration:none;font-size:13px;">⚙ تنظیمات</a>
-            <a href="{{ url_for('logout_page') }}" class="header-btn" style="text-decoration:none;font-size:13px;">🚪 خروج</a>
+            <a href="{{ url_for('settings_page') }}" class="header-btn" id="settings-link" style="text-decoration:none;font-size:13px;">⚙ تنظیمات</a>
+            <a href="{{ url_for('logout_page') }}" class="header-btn" id="logout-link" style="text-decoration:none;font-size:13px;">🚪 خروج</a>
         </div>
     </header>
 
@@ -51,7 +52,7 @@
             <!-- پنل درخت -->
             <div class="tree-panel" id="tree-panel">
                 <div class="panel-header">
-                    <h3>ساختار محصول</h3>
+                    <h3 id="tree-panel-title">ساختار محصول</h3>
                     <button class="collapse-btn" onclick="togglePanel('tree')" title="جمع کردن پنل">◀</button>
                 </div>
                 <div class="panel-content" id="tree-panel-content">
@@ -66,8 +67,8 @@
                         <button class="view-btn" onclick="switchMainView('kanban')" id="btn-view-kanban"> کانبان</button>
                     </div>
                     <div class="export-buttons">
-                        <button onclick="exportExcel()" class="btn-export btn-excel">📊 Excel</button>
-                        <button onclick="exportSchematic()" class="btn-export btn-schematic">📐 شماتیک</button>
+                        <button onclick="exportExcel()" class="btn-export btn-excel" id="btn-excel">📊 Excel</button>
+                        <button onclick="exportSchematic()" class="btn-export btn-schematic" id="btn-schematic">📐 شماتیک</button>
                     </div>
                     <div id="tree-container"></div>
                     <div id="kanban-container" style="display:none;"></div>
@@ -101,9 +102,9 @@
                         </div>
 
                         <div class="tabs">
-                            <button class="tab-btn active" onclick="switchTab('tab-general')"> عمومی</button>
-                            <button class="tab-btn" onclick="switchTab('tab-images')">️ تصاویر</button>
-                            <button class="tab-btn" onclick="switchTab('tab-inventory')">📦 انبار</button>
+                            <button class="tab-btn active" id="tab-btn-general" onclick="switchTab('tab-general')"> عمومی</button>
+                            <button class="tab-btn" id="tab-btn-images" onclick="switchTab('tab-images')">️ تصاویر</button>
+                            <button class="tab-btn" id="tab-btn-inventory" onclick="switchTab('tab-inventory')">📦 انبار</button>
                             <button class="tab-btn" id="tab-btn-mfg" onclick="switchTab('tab-mfg')" style="display:none;">⚙️ ساخت</button>
                             <button class="tab-btn" id="tab-btn-schedule" onclick="switchTab('tab-schedule')" style="display:none;">📅 برنامه تولید</button>
                             <button class="tab-btn" id="tab-btn-docs" onclick="switchTab('tab-docs')" style="display:none;">📁 مدارک فنی</button>
@@ -111,19 +112,19 @@
 
                         <div class="tab-content active" id="tab-general">
                             <div class="form-group">
-                                <label>نام:</label>
+                                <label id="field-name-label">نام:</label>
                                 <input type="text" id="field-name">
                             </div>
                             <div class="form-group">
-                                <label>کد فنی:</label>
+                                <label id="field-partCode-label">کد فنی:</label>
                                 <input type="text" id="field-partCode">
                             </div>
                             <div class="form-group">
-                                <label>مشخصات فنی:</label>
+                                <label id="field-specs-label">مشخصات فنی:</label>
                                 <textarea id="field-specs" rows="3"></textarea>
                             </div>
                             <div class="form-group">
-                                <label>توضیحات:</label>
+                                <label id="field-notes-label">توضیحات:</label>
                                 <textarea id="field-notes" rows="3"></textarea>
                             </div>
                         </div>
@@ -134,7 +135,7 @@
                                 <div class="gallery-grid" id="image-gallery"></div>
                                 <div class="add-image-box" onclick="document.getElementById('img-upload-multi').click()">
                                     <span class="plus-icon">+</span>
-                                    <span class="img-label">افزودن عکس جدید</span>
+                                    <span class="img-label" id="add-image-label">افزودن عکس جدید</span>
                                     <input type="file" id="img-upload-multi" accept="image/*" hidden onchange="addImageToGallery(this)">
                                 </div>
                             </div>
@@ -142,30 +143,30 @@
 
                         <div class="tab-content" id="tab-inventory">
                             <div class="form-group" id="order-count-group" style="display:none;">
-                                <label>تعداد سفارش ثبت‌شده از بیرون:</label>
+                                <label id="field-order_count-label">تعداد سفارش ثبت‌شده از بیرون:</label>
                                 <input type="number" id="field-order_count" min="0" value="0">
                             </div>
                             <div class="form-group">
-                                <label>تعداد مورد نیاز برای ساخت یک محصول:</label>
+                                <label id="field-required_quantity-label">تعداد مورد نیاز برای ساخت یک محصول:</label>
                                 <input type="number" id="field-required_quantity" min="1" value="1">
                             </div>
                             <div class="form-group" id="total-required-group" style="display:none;">
-                                <label>تعداد مورد نیاز کل (بر اساس سفارشات):</label>
+                                <label id="field-total_required-label">تعداد مورد نیاز کل (بر اساس سفارشات):</label>
                                 <input type="number" id="field-total_required" readonly style="background:#f5f5f5; font-weight:bold;">
                             </div>
                             <div class="form-group">
-                                <label>موجودی فعلی در انبار:</label>
+                                <label id="field-quantity-label">موجودی فعلی در انبار:</label>
                                 <input type="number" id="field-quantity" min="0" value="0">
                             </div>
                             <div id="shortage-info" style="background:#fff3cd; padding:10px; border-radius:5px; margin-bottom:15px; display:none;">
                                 <strong id="shortage-text"></strong>
                             </div>
                             <div class="form-group" id="supplier-group" style="display:none;">
-                                <label>نام تأمین‌کننده / فروشنده:</label>
+                                <label id="field-supplier-label">نام تأمین‌کننده / فروشنده:</label>
                                 <input type="text" id="field-supplier" placeholder="مثلاً: شرکت فولاد X">
                             </div>
                             <div class="form-group" id="part-email-group">
-                                <label>ایمیل مسئول قطعه (مدیر تولید / تأمین‌کننده):</label>
+                                <label id="part-email-label">ایمیل مسئول قطعه (مدیر تولید / تأمین‌کننده):</label>
                                 <div style="display:flex;gap:8px;">
                                     <input type="email" id="field-supplier-email" placeholder="manager@company.com" style="flex:1;">
                                     <button onclick="sendPartEmail()" class="btn-small" style="background:#3498db;white-space:nowrap;" title="ارسال ایمیل به مسئول قطعه">✉ ارسال ایمیل</button>
@@ -191,11 +192,11 @@
                             </div>
 
                             <div class="form-group">
-                                <label>نوع قطعه:</label>
+                                <label id="field-partType-label">نوع قطعه:</label>
                                 <select id="field-partType" onchange="toggleSupplierField()">
-                                    <option value="">-- انتخاب کنید --</option>
-                                    <option value="buy"> خریدنی</option>
-                                    <option value="make">🔧 ساختنی</option>
+                                    <option value="">-- ${t('selectNode')} --</option>
+                                    <option value="buy"> ${t('buy')}</option>
+                                    <option value="make">🔧 ${t('make')}</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -247,7 +248,7 @@
                                 <div id="documents-list" style="max-height:300px;overflow-y:auto;"></div>
                                 <div class="add-image-box" onclick="document.getElementById('doc-upload').click()" style="margin-top:8px;">
                                     <span class="plus-icon">+</span>
-                                    <span class="img-label">افزودن مدرک فنی (PDF, STEP, DWG, DXF, ...)</span>
+                                    <span class="img-label" id="add-doc-label">افزودن مدرک فنی (PDF, STEP, DWG, DXF, ...)</span>
                                     <input type="file" id="doc-upload" accept=".pdf,.step,.stp,.dwg,.dxf,.stl,.sldprt,.sldasm,.iges,.igs,.3dm,.obj,.zip" hidden onchange="uploadDocument(this)">
                                 </div>
                             </div>

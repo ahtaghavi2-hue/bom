@@ -37,6 +37,23 @@
 * { box-sizing: border-box; }
 body { font-family: Tahoma, Arial, sans-serif; margin: 0; padding: 0; background: var(--bg-primary); color: var(--text-primary); transition: background var(--transition-slow), color var(--transition-slow); }
 
+/* LTR (English) overrides */
+html[dir="ltr"] .notif-item { border-right: none; border-left: 3px solid var(--accent-red); }
+html[dir="ltr"] .stat-total { border-right: none; border-left: 4px solid #007bff; }
+html[dir="ltr"] .stat-done { border-right: none; border-left: 4px solid #28a745; }
+html[dir="ltr"] .stat-missing { border-right: none; border-left: 4px solid #dc3545; }
+html[dir="ltr"] .kanban-card { border-right: none; border-left: 4px solid var(--border-color); }
+html[dir="ltr"] .kanban-card.status-completed { border-left-color: #4CAF50; }
+html[dir="ltr"] .kanban-card.status-in-progress { border-left-color: #FF9800; }
+html[dir="ltr"] .kanban-card.status-not-started { border-left-color: #F44336; }
+html[dir="ltr"] .notification-panel { left: auto; right: 20px; }
+@keyframes slideInRightLTR { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+html[dir="ltr"] .notification-panel { animation: slideInRightLTR 0.3s ease; }
+html[dir="ltr"] .modal-card-footer { justify-content: flex-start; }
+html[dir="ltr"] .header-right { order: 1; }
+html[dir="ltr"] .header-left { order: 0; }
+html[dir="ltr"] .stage-item-new { flex-direction: row; }
+
 /* هدر */
 .app-header {
     display: flex; justify-content: space-between; align-items: center;
