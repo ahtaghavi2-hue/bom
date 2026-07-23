@@ -1091,19 +1091,19 @@ function renderStages() {
         const isExpanded = expandedStages[stageKey] || false;
 
         const item = $(`
-            <div class="stage-item-new" draggable="true" data-index="${idx}">
-                <span class="stage-drag-handle" style="cursor: grab; color:var(--text-muted);">☰</span>
-                <div style="flex:1;min-width:0;" onmousedown="event.stopPropagation()">
+            <div class="stage-item-new" data-index="${idx}">
+                <span class="stage-drag-handle" draggable="true" style="cursor: grab; color:var(--text-muted);">☰</span>
+                <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span class="stage-expand-btn" onclick="toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);user-select:none;" onmousedown="event.stopPropagation()">${isExpanded ? '▼' : '▶'}</span>
+                        <span class="stage-expand-btn" onclick="toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);user-select:none;">${isExpanded ? '▼' : '▶'}</span>
                         <span class="stage-name">${stage.name}</span>
-                        <div class="stage-status-btns" onmousedown="event.stopPropagation()">
+                        <div class="stage-status-btns">
                             <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="setStageStatus(${idx}, 'not_started')" title="${t('notStarted')}">🔴</button>
                             <button class="stage-status-btn ${status === 'in_progress' ? 'active-in-progress' : ''}" onclick="setStageStatus(${idx}, 'in_progress')" title="${t('inProgress')}">🟡</button>
                             <button class="stage-status-btn ${status === 'completed' ? 'active-completed' : ''}" onclick="setStageStatus(${idx}, 'completed')" title="${t('completed')}">🟢</button>
                         </div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;" onmousedown="event.stopPropagation()">
+                    <div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
                         <span title="${t('material')}">💰 ${t('material')}: <input type="number" step="1000" value="${matCost}" onchange="tempStages[${idx}].estimated_material_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
                         <span title="${t('labor')}">🔧 ${t('labor')}: <input type="number" step="1000" value="${laborCost}" onchange="tempStages[${idx}].estimated_labor_cost=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
                         <span title="${t('overhead')}">📋 ${t('overhead')}: <input type="number" step="1000" value="${overhead}" onchange="tempStages[${idx}].estimated_overhead=Number(this.value);updateCostSummary();autoSaveNode()" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);"></span>
@@ -1138,10 +1138,10 @@ function renderStages() {
         `);
         item.on('dragstart', function(e) {
             if (!$(e.target).closest('.stage-drag-handle').length) { e.preventDefault(); return; }
-            $(this).addClass('dragging');
+            $(this).closest('.stage-item-new').addClass('dragging');
             e.originalEvent.dataTransfer.setData('text/plain', idx);
         });
-        item.on('dragend', function() { $(this).removeClass('dragging'); });
+        item.on('dragend', function(e) { $(this).closest('.stage-item-new').removeClass('dragging'); });
         item.on('dragover', function(e) { e.preventDefault(); });
         item.on('drop', function(e) {
             e.preventDefault();
