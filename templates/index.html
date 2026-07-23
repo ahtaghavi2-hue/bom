@@ -86,9 +86,9 @@
                     <div class="breadcrumbs" id="breadcrumbs" style="display:none;"></div>
 
                     <div id="dashboard-summary" class="dashboard-summary" style="display:none;">
-                        <div class="stat-box stat-total"><span id="stat-total">0</span><small>کل اقلام</small></div>
-                        <div class="stat-box stat-done"><span id="stat-done">0</span><small>ساخته شده</small></div>
-                        <div class="stat-box stat-missing"><span id="stat-missing">0</span><small>کسری انبار</small></div>
+                        <div class="stat-box stat-total"><span id="stat-total">0</span><small id="stat-total-label">کل اقلام</small></div>
+                        <div class="stat-box stat-done"><span id="stat-done">0</span><small id="stat-done-label">ساخته شده</small></div>
+                        <div class="stat-box stat-missing"><span id="stat-missing">0</span><small id="stat-missing-label">کسری انبار</small></div>
                     </div>
 
                     <div id="no-selection" class="placeholder">
@@ -178,8 +178,8 @@
                         <div class="tab-content" id="tab-mfg">
                             <!-- نوار پیشرفت مراحل ساخت -->
                             <div class="progress-container" id="progress-container" style="display:none;">
-                                <div class="progress-label">
-                                    <span>پیشرفت مراحل ساخت</span>
+                                <div class="progress-label" id="progress-label">
+                                    <span id="progress-label-text">پیشرفت مراحل ساخت</span>
                                     <span id="progress-percentage">0%</span>
                                 </div>
                                 <div class="progress-bar">

@@ -643,6 +643,18 @@ def settings_page():
     }
     return render_template('settings.html', settings=settings)
 
+@app.route('/api/settings/save', methods=['POST'])
+@login_required
+def api_save_setting():
+    data = request.json
+    for key, val in data.items():
+        if key in ['mail_server', 'mail_port', 'mail_username', 'mail_password', 'mail_use_tls']:
+            if key == 'mail_port':
+                try: val = str(int(val))
+                except: val = '587'
+            Setting.set(key, val)
+    return jsonify({'success': True})
+
 @app.route('/api/test-email', methods=['POST'])
 @login_required
 def test_email():

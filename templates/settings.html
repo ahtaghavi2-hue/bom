@@ -46,41 +46,38 @@
         {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('settings_page') }}">
         <div class="settings-card">
             <div class="card-header"><h3 id="email-settings-title">تنظیمات ایمیل (SMTP)</h3></div>
             <div class="card-body">
                 <div class="setting-row">
                     <div><div class="setting-label" id="smtp-server-label">سرور SMTP</div><div class="setting-desc" id="smtp-server-desc">مثلاً smtp.gmail.com</div></div>
-                    <div class="setting-input"><input type="text" name="mail_server" value="{{ settings.mail_server }}" placeholder="smtp.gmail.com" id="smtp-server-input"></div>
+                    <div class="setting-input"><input type="text" name="mail_server" value="{{ settings.mail_server }}" placeholder="smtp.gmail.com" id="smtp-server-input" onchange="autoSaveSetting('mail_server', this.value)"></div>
                 </div>
                 <div class="setting-row">
                     <div><div class="setting-label" id="smtp-port-label">پورت SMTP</div><div class="setting-desc" id="smtp-port-desc">معمولاً 587 (TLS) یا 465 (SSL)</div></div>
-                    <div class="setting-input"><input type="number" name="mail_port" value="{{ settings.mail_port }}" placeholder="587" id="smtp-port-input"></div>
+                    <div class="setting-input"><input type="number" name="mail_port" value="{{ settings.mail_port }}" placeholder="587" id="smtp-port-input" onchange="autoSaveSetting('mail_port', this.value)"></div>
                 </div>
                 <div class="setting-row">
                     <div><div class="setting-label" id="smtp-user-label">نام کاربری</div><div class="setting-desc" id="smtp-user-desc">آدرس ایمیل کامل</div></div>
-                    <div class="setting-input"><input type="text" name="mail_username" value="{{ settings.mail_username }}" placeholder="your@email.com" id="smtp-user-input"></div>
+                    <div class="setting-input"><input type="text" name="mail_username" value="{{ settings.mail_username }}" placeholder="your@email.com" id="smtp-user-input" onchange="autoSaveSetting('mail_username', this.value)"></div>
                 </div>
                 <div class="setting-row">
                     <div><div class="setting-label" id="smtp-pass-label">رمز عبور</div><div class="setting-desc" id="smtp-pass-desc">کلمه عبور یا App Password</div></div>
-                    <div class="setting-input"><input type="password" name="mail_password" value="{{ settings.mail_password }}" placeholder="••••••••" id="smtp-pass-input"></div>
+                    <div class="setting-input"><input type="password" name="mail_password" value="{{ settings.mail_password }}" placeholder="••••••••" id="smtp-pass-input" onchange="autoSaveSetting('mail_password', this.value)"></div>
                 </div>
                 <div class="setting-row">
                     <div><div class="setting-label" id="smtp-tls-label">استفاده از TLS</div><div class="setting-desc" id="smtp-tls-desc">برای Gmail و بیشتر سرورها روشن باشد</div></div>
                     <div class="setting-input">
                         <input type="hidden" name="mail_use_tls" value="false">
-                        <input type="checkbox" name="mail_use_tls" value="true" {% if settings.mail_use_tls == 'true' %}checked{% endif %} style="width:auto;transform:scale(1.3);" id="smtp-tls-input">
+                        <input type="checkbox" name="mail_use_tls" value="true" {% if settings.mail_use_tls == 'true' %}checked{% endif %} style="width:auto;transform:scale(1.3);" id="smtp-tls-input" onchange="autoSaveSetting('mail_use_tls', this.checked ? 'true' : 'false')">
                     </div>
                 </div>
                 <div style="margin-top:20px;display:flex;gap:10px;">
-                    <button type="submit" class="btn-primary" style="flex:1;padding:10px;" id="save-settings-btn">💾 ذخیره تنظیمات</button>
                     <button type="button" class="btn-test" onclick="testEmail()" style="padding:10px 20px;" id="test-email-btn">✉ آزمایش ایمیل</button>
                 </div>
                 <div id="email-test-result" class="msg-box"></div>
             </div>
         </div>
-        </form>
 
         <div class="settings-card">
             <div class="card-header"><h3 id="display-settings-title">🖥 تنظیمات نمایش</h3></div>
@@ -89,9 +86,9 @@
                     <div><div class="setting-label" id="font-size-label">اندازه فونت</div><div class="setting-desc" id="font-size-desc">تنظیم اندازه متن در سراسر برنامه</div></div>
                     <div class="setting-input">
                         <select id="font-size-select" onchange="changeFontSize(this.value)">
-                            <option value="small">کوچک</option>
-                            <option value="medium" selected>متوسط</option>
-                            <option value="large">بزرگ</option>
+                            <option value="small" data-fa="کوچک" data-en="Small">کوچک</option>
+                            <option value="medium" selected data-fa="متوسط" data-en="Medium">متوسط</option>
+                            <option value="large" data-fa="بزرگ" data-en="Large">بزرگ</option>
                         </select>
                     </div>
                 </div>
@@ -99,8 +96,8 @@
                     <div><div class="setting-label" id="theme-label">تم</div><div class="setting-desc" id="theme-desc">تغییر بین تم روشن و تاریک</div></div>
                     <div class="setting-input">
                         <select id="theme-select" onchange="changeTheme(this.value)">
-                            <option value="light">روشن</option>
-                            <option value="dark">تاریک</option>
+                            <option value="light" data-fa="روشن" data-en="Light">روشن</option>
+                            <option value="dark" data-fa="تاریک" data-en="Dark">تاریک</option>
                         </select>
                     </div>
                 </div>
@@ -108,8 +105,8 @@
                     <div><div class="setting-label" id="language-label">زبان</div><div class="setting-desc" id="language-desc">انتخاب زبان رابط کاربری</div></div>
                     <div class="setting-input">
                         <select id="lang-select" onchange="changeLangSettings(this.value)">
-                            <option value="fa">فارسی</option>
-                            <option value="en">English</option>
+                            <option value="fa" data-fa="فارسی" data-en="Persian">فارسی</option>
+                            <option value="en" data-fa="انگلیسی" data-en="English">English</option>
                         </select>
                     </div>
                 </div>
@@ -134,11 +131,11 @@
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
         let settingsLang = localStorage.getItem('appLang') || 'fa';
+        let settingsSaveTimer = null;
 
         function applySettingsLang() {
             const l = settingsLang;
             const isFa = l === 'fa';
-            const isEn = l === 'en';
 
             document.documentElement.setAttribute('dir', isFa ? 'rtl' : 'ltr');
             $('#lang-toggle-settings').text(isFa ? 'English' : 'فارسی');
@@ -156,7 +153,6 @@
             $('#smtp-pass-desc').text(isFa ? 'کلمه عبور یا App Password' : 'Password or App Password');
             $('#smtp-tls-label').text(isFa ? 'استفاده از TLS' : 'Use TLS');
             $('#smtp-tls-desc').text(isFa ? 'برای Gmail و بیشتر سرورها روشن باشد' : 'Enable for Gmail and most servers');
-            $('#save-settings-btn').html(isFa ? '💾 ذخیره تنظیمات' : '💾 Save Settings');
             $('#test-email-btn').text(isFa ? '✉ آزمایش ایمیل' : '✉ Test Email');
             $('#display-settings-title').text(isFa ? '🖥 تنظیمات نمایش' : '🖥 Display Settings');
             $('#font-size-label').text(isFa ? 'اندازه فونت' : 'Font Size');
@@ -171,6 +167,13 @@
             $('#account-role-label').text(isFa ? 'نقش' : 'Role');
             $('#account-role-desc').text(isFa ? 'دسترسی شما در سیستم' : 'Your access level in the system');
             $('#page-title-settings').text(isFa ? 'تنظیمات | BOM Manager' : 'Settings | BOM Manager');
+
+            // translate select option texts
+            $('#font-size-select option, #theme-select option, #lang-select option').each(function() {
+                const fa = $(this).data('fa');
+                const en = $(this).data('en');
+                if (fa && en) $(this).text(isFa ? fa : en);
+            });
         }
 
         function changeFontSize(size) {
@@ -189,22 +192,35 @@
             localStorage.setItem('appLang', lang);
             currentLang = lang;
             applySettingsLang();
-            // persist to main page
             if (typeof applyLang === 'function') applyLang();
         }
 
+        function autoSaveSetting(key, value) {
+            clearTimeout(settingsSaveTimer);
+            settingsSaveTimer = setTimeout(function() {
+                const data = {};
+                data[key] = value;
+                $.ajax({
+                    url: '/api/settings/save',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function() {
+                        // auto-saved silently
+                    }
+                });
+            }, 600);
+        }
+
         $(document).ready(function() {
-            // restore saved font size
             const savedFontSize = localStorage.getItem('fontSize') || 'medium';
             $('#font-size-select').val(savedFontSize);
             changeFontSize(savedFontSize);
 
-            // restore saved theme
             const savedTheme = localStorage.getItem('theme') || 'light';
             $('#theme-select').val(savedTheme);
             document.documentElement.setAttribute('data-theme', savedTheme);
 
-            // restore saved lang
             const savedLang = localStorage.getItem('appLang') || 'fa';
             settingsLang = savedLang;
             currentLang = savedLang;

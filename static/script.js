@@ -366,7 +366,10 @@ function applyLang() {
     $('#schedule-label').text(t('schedule') + ':');
     $('#add-schedule-btn-text').text(t('addSchedule'));
     $('#docs-label').text(t('techDocs') + ':');
-    $('#progress-label').text(t('progress'));
+    $('#progress-label-text').text(t('progress'));
+    $('#stat-total-label').text(t('product'));
+    $('#stat-done-label').text(t('completedCount'));
+    $('#stat-missing-label').text(t('shortage'));
     // modal buttons
     $('.btn-ok').text(t('ok'));
     $('.btn-yes').text(t('yes'));
