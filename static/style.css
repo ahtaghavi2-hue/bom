@@ -243,10 +243,12 @@ html[dir="ltr"] .stage-item-new { flex-direction: row; }
 
 /* مراحل ساخت */
 .stages-list-new { min-height: 40px; margin-bottom: 10px; }
-.stage-item-new { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--bg-secondary); border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border-color); cursor: grab; transition: all var(--transition-fast); animation: slideInFromLeft 0.3s ease; }
+.stage-item-new { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--bg-secondary); border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border-color); transition: all var(--transition-fast); animation: slideInFromLeft 0.3s ease; }
 .stage-item-new:hover { border-color: var(--accent-blue); box-shadow: 0 2px 8px var(--shadow-color); }
-.stage-item-new:active { cursor: grabbing; background: var(--bg-tertiary); transform: scale(1.02); }
+.stage-item-new:active { background: var(--bg-tertiary); }
 .stage-item-new.dragging { opacity: 0.5; border: 2px dashed var(--accent-green); transform: rotate(2deg); }
+.stage-drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; display: inline-block; padding: 0 4px; }
+.stage-drag-handle:active { cursor: grabbing; }
 @keyframes slideInFromLeft { from { opacity: 0; transform: translateX(-15px); } to { opacity: 1; transform: translateX(0); } }
 .stage-name { flex: 1; font-weight: bold; font-size: 14px; }
 .stage-status-btns { display: flex; gap: 5px; }

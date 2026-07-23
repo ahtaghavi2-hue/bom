@@ -349,10 +349,15 @@ function applyLang() {
     $('#field-partType-label').text(t('partType'));
     $('#btn-add-assembly').text('📦 ' + t('newAssembly'));
     $('#btn-add-part').text('⚙️ ' + t('newPart'));
-    $('#btn-delete').innerHTML = '️ ' + t('delete');
+    $('#btn-delete').html('️ ' + t('delete'));
     $('#add-image-label').text(t('images'));
     $('#add-doc-label').text(t('techDocs'));
     $('#part-email-label').text(t('supplierEmail'));
+    $('#edit-form-title').text(t('edit') + ': ');
+    $('#gallery-label').text(t('images') + ':');
+    $('#send-email-text').text(t('sendEmail'));
+    $('#send-email-btn').prop('title', t('sendEmail'));
+    $('#email-desc').text(currentLang === 'fa' ? 'برای اطلاع از کمبود موجودی یا وضعیت ساخت به این آدرس ایمیل ارسال می‌شود' : 'Emails are sent to this address for shortage alerts and production status updates.');
     $('#progress-label').text(t('progress'));
     // modal buttons
     $('.btn-ok').text(t('ok'));
@@ -1091,10 +1096,9 @@ function renderStages() {
 
         const item = $(`
             <div class="stage-item-new" data-index="${idx}">
-                <span class="stage-drag-handle" draggable="true" style="cursor: grab; color:var(--text-muted);">☰</span>
-                <div style="flex:1;min-width:0;">
+                <span class="stage-drag-handle" draggable="true" style="cursor: grab; color:var(--text-muted); user-select: none; -webkit-user-select: none;">☰</span>
+                <div style="flex:1;min-width:0;" ondblclick="toggleStageExpand(${idx})">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span class="stage-expand-btn" onclick="toggleStageExpand(${idx})" style="cursor:pointer;font-size:12px;color:var(--accent-blue);user-select:none;">${isExpanded ? '▼' : '▶'}</span>
                         <span class="stage-name">${stage.name}</span>
                         <div class="stage-status-btns">
                             <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="setStageStatus(${idx}, 'not_started')" title="${t('notStarted')}">🔴</button>

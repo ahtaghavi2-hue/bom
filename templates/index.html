@@ -97,7 +97,7 @@
 
                     <div id="edit-form" style="display:none;">
                         <div class="form-header">
-                            <h3>ویرایش: <span id="current-node" class="node-name"></span></h3>
+                            <h3><span id="edit-form-title">ویرایش: </span><span id="current-node" class="node-name"></span></h3>
                             <div class="node-type-badge" id="node-type-badge"></div>
                         </div>
 
@@ -131,7 +131,7 @@
 
                         <div class="tab-content" id="tab-images">
                             <div class="form-group">
-                                <label>گالری تصاویر:</label>
+                                <label id="gallery-label">گالری تصاویر:</label>
                                 <div class="gallery-grid" id="image-gallery"></div>
                                 <div class="add-image-box" onclick="document.getElementById('img-upload-multi').click()">
                                     <span class="plus-icon">+</span>
@@ -169,9 +169,9 @@
                                 <label id="part-email-label">ایمیل مسئول قطعه (مدیر تولید / تأمین‌کننده):</label>
                                 <div style="display:flex;gap:8px;">
                                     <input type="email" id="field-supplier-email" placeholder="manager@company.com" style="flex:1;">
-                                    <button onclick="sendPartEmail()" class="btn-small" style="background:#3498db;white-space:nowrap;" title="ارسال ایمیل به مسئول قطعه">✉ ارسال ایمیل</button>
+                                    <button onclick="sendPartEmail()" class="btn-small" style="background:#3498db;white-space:nowrap;" id="send-email-btn" title="ارسال ایمیل به مسئول قطعه">✉ <span id="send-email-text">ارسال ایمیل</span></button>
                                 </div>
-                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">برای اطلاع از کمبود موجودی یا وضعیت ساخت به این آدرس ایمیل ارسال می‌شود</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" id="email-desc">برای اطلاع از کمبود موجودی یا وضعیت ساخت به این آدرس ایمیل ارسال می‌شود</div>
                             </div>
                         </div>
 
@@ -255,7 +255,7 @@
                         </div>
 
                         <div class="form-actions">
-                            <button onclick="deleteNode()" class="btn-delete">️ حذف</button>
+                            <button id="btn-delete" onclick="deleteNode()" class="btn-delete">️ حذف</button>
                         </div>
                     </div>
                 </div>
