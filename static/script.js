@@ -594,28 +594,31 @@ function renderImageGallery(images) {
 function addImageToGallery(input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        const label = prompt("برای این عکس یک برچسب وارد کنید:", "تصویر");
-        if (label === null) { input.value = ''; return; }
-        const formData = new FormData();
-        formData.append('file', file);
-        fetch('/api/upload', { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(data => {
-                const node = currentData.nodes[currentNodeId];
-                if (!node.images) node.images = [];
-                node.images.push({ url: data.url, label: label || 'تصویر' });
-                renderImageGallery(node.images);
-                input.value = '';
-            });
+        const currentInput = input;
+        showPromptModal('برچسب عکس', 'برچسب:', 'تصویر', function(label) {
+            if (label === null || label === undefined) { currentInput.value = ''; return; }
+            const formData = new FormData();
+            formData.append('file', file);
+            fetch('/api/upload', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    const node = currentData.nodes[currentNodeId];
+                    if (!node.images) node.images = [];
+                    node.images.push({ url: data.url, label: label || 'تصویر' });
+                    renderImageGallery(node.images);
+                    currentInput.value = '';
+                });
+        });
     }
 }
 
 function removeImage(index) {
-    if (confirm('آیا از حذف این عکس مطمئن هستید؟')) {
+    showConfirmModal('آیا از حذف این عکس مطمئن هستید؟', function(result) {
+        if (!result) return;
         const node = currentData.nodes[currentNodeId];
         node.images.splice(index, 1);
         renderImageGallery(node.images);
-    }
+    });
 }
 
 function openModal(src) {
@@ -818,7 +821,7 @@ function submitDetailForm() {
     const idx = window._detailStageIdx;
     const editDi = window._detailEditIdx;
     const desc = $('#detail-desc').val().trim();
-    if (!desc) { alert('متن جزئیات را وارد کنید'); return; }
+    if (!desc) { showAlertModal('متن جزئیات را وارد کنید'); return; }
     const details = stageDetailsMap[idx] = stageDetailsMap[idx] || [];
     if (editDi >= 0 && editDi < details.length) {
         // Edit existing
@@ -854,15 +857,17 @@ function submitDetailForm() {
 }
 
 function removeStageDetail(idx, di) {
-    if (!confirm('حذف شود؟')) return;
-    const details = stageDetailsMap[idx] || [];
-    const d = details[di];
-    if (d && d.id) {
-        fetch(`/api/v2/stage-details/${d.id}`, { method: 'DELETE' });
-    }
-    details.splice(di, 1);
-    details.forEach((dt, i) => dt.step_number = i + 1);
-    renderStageDetails(idx);
+    showConfirmModal('حذف شود؟', function(result) {
+        if (!result) return;
+        const details = stageDetailsMap[idx] || [];
+        const d = details[di];
+        if (d && d.id) {
+            fetch(`/api/v2/stage-details/${d.id}`, { method: 'DELETE' });
+        }
+        details.splice(di, 1);
+        details.forEach((dt, i) => dt.step_number = i + 1);
+        renderStageDetails(idx);
+    });
 }
 
 // ───── Manufacturers ─────
@@ -1022,7 +1027,7 @@ function addMfrSocialRow() {
 
 function submitMfrForm() {
     const name = $('#mfr-name').val().trim();
-    if (!name) { alert('نام سازنده الزامی است'); return; }
+    if (!name) { showAlertModal('نام سازنده الزامی است'); return; }
     const phone = $('#mfr-phone').val().trim();
     const address = $('#mfr-address').val().trim();
     const notes = $('#mfr-notes').val().trim();
@@ -1049,9 +1054,9 @@ function submitMfrForm() {
                 loadAllManufacturers();
                 loadPartManufacturers(currentNodeId);
             } else {
-                alert('خطا: ' + (r.error || 'نامشخص'));
+                showAlertModal('خطا: ' + (r.error || 'نامشخص'));
             }
-        }).catch(e => alert('خطا: ' + e.message));
+        }).catch(e => showAlertModal('خطا: ' + e.message));
     } else {
         fetch('/api/v2/manufacturers', {
             method: 'POST',
@@ -1063,15 +1068,15 @@ function submitMfrForm() {
                 closeMfrFormModal();
                 addManufacturerToPart(r.data.id);
             } else {
-                alert('خطا در ایجاد سازنده: ' + (r.error || 'نامشخص'));
+                showAlertModal('خطا در ایجاد سازنده: ' + (r.error || 'نامشخص'));
             }
-        }).catch(e => alert('خطا در ارتباط با سرور: ' + e.message));
+        }).catch(e => showAlertModal('خطا در ارتباط با سرور: ' + e.message));
     }
 }
 
 function addManufacturerToPart(mfrId) {
     const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
-    if (isNaN(pid)) { alert('خطا: قطعه شناسه معتبری ندارد'); return; }
+    if (isNaN(pid)) { showAlertModal('خطا: قطعه شناسه معتبری ندارد'); return; }
     fetch(`/api/v2/parts/${pid}/manufacturers`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1081,30 +1086,32 @@ function addManufacturerToPart(mfrId) {
             partManufacturers.push(r.data);
             refreshManufacturersList();
         } else {
-            alert('خطا: ' + (r.error || 'نامشخص'));
+            showAlertModal('خطا: ' + (r.error || 'نامشخص'));
         }
     }).catch(e => {
-        alert('خطا در ارتباط با سرور: ' + e.message);
+        showAlertModal('خطا در ارتباط با سرور: ' + e.message);
     });
 }
 
 function removeManufacturerFromPart(mi) {
-    if (!confirm(`حذف "${partManufacturers[mi].name}" از سازندگان این قطعه؟`)) return;
-    const mfr = partManufacturers[mi];
-    const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
-    if (isNaN(pid)) return;
-    fetch(`/api/v2/parts/${pid}/manufacturers/${mfr.id}`, { method: 'DELETE' })
-        .then(res => res.json()).then(r => {
-            if (r.success) {
-                partManufacturers.splice(mi, 1);
-                mfrExpandState[mi] = false;
-                refreshManufacturersList();
-            } else {
-                alert('خطا: ' + (r.error || 'نامشخص'));
-            }
-        }).catch(e => {
-            alert('خطا در ارتباط با سرور: ' + e.message);
-        });
+    showConfirmModal(`حذف "${partManufacturers[mi].name}" از سازندگان این قطعه؟`, function(result) {
+        if (!result) return;
+        const mfr = partManufacturers[mi];
+        const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
+        if (isNaN(pid)) return;
+        fetch(`/api/v2/parts/${pid}/manufacturers/${mfr.id}`, { method: 'DELETE' })
+            .then(res => res.json()).then(r => {
+                if (r.success) {
+                    partManufacturers.splice(mi, 1);
+                    mfrExpandState[mi] = false;
+                    refreshManufacturersList();
+                } else {
+                    showAlertModal('خطا: ' + (r.error || 'نامشخص'));
+                }
+            }).catch(e => {
+                showAlertModal('خطا در ارتباط با سرور: ' + e.message);
+            });
+    });
 }
 
 function escapeHtml(text) {
@@ -1142,7 +1149,7 @@ function setStageStatus(idx, status) {
 
 function addStage() {
     const name = $('#new-stage-name').val().trim();
-    if (!name) { alert('لطفاً نام مرحله را وارد یا انتخاب کنید'); return; }
+    if (!name) { showAlertModal('لطفاً نام مرحله را وارد یا انتخاب کنید'); return; }
     tempStages.push({ name: name, status: 'not_started', estimated_material_cost: 0, estimated_labor_cost: 0, estimated_overhead: 0, estimated_hours: 0 });
     $('#new-stage-name').val('');
     renderStages();
@@ -1186,41 +1193,45 @@ function cancelInlineEdit() {
 }
 
 function addRootProduct() {
-    const name = prompt('نام محصول اصلی جدید:');
-    if (!name || name.trim() === '') return;
-    fetch('/api/node', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: name, type: 'product', parent: null }) }).then(() => loadData());
+    showPromptModal('محصول جدید', 'نام محصول:', '', function(name) {
+        if (!name) return;
+        fetch('/api/node', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: name, type: 'product', parent: null }) }).then(() => loadData());
+    });
 }
 
 function addChildOf(type) {
-    if (!currentNodeId) { alert('⚠️ ابتدا باید روی یک گره کلیک کنید'); return; }
+    if (!currentNodeId) { showAlertModal('⚠️ ابتدا باید روی یک گره کلیک کنید'); return; }
     const parentNode = currentData.nodes[currentNodeId];
-    if (parentNode.type === 'part') { alert('⚠️ قطعه نمی‌تواند زیرمجموعه داشته باشد'); return; }
+    if (parentNode.type === 'part') { showAlertModal('⚠️ قطعه نمی‌تواند زیرمجموعه داشته باشد'); return; }
     const typeName = type === 'assembly' ? 'زیرمجموعه' : 'قطعه';
-    const name = prompt(`نام ${typeName} جدید:`, `${typeName} جدید`);
-    if (!name || name.trim() === '') return;
-    fetch('/api/node', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: name, type: type, parent: currentNodeId }) })
-    .then(res => res.json()).then(result => {
-        if (result.success) {
-            if (!openedNodes.includes(currentNodeId)) openedNodes.push(currentNodeId);
-            loadData();
-        }
+    showPromptModal(`${typeName} جدید`, `نام ${typeName}:`, `${typeName} جدید`, function(name) {
+        if (!name) return;
+        fetch('/api/node', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: name, type: type, parent: currentNodeId }) })
+        .then(res => res.json()).then(result => {
+            if (result.success) {
+                if (!openedNodes.includes(currentNodeId)) openedNodes.push(currentNodeId);
+                loadData();
+            }
+        });
     });
 }
 
 function deleteNode() {
     if (!currentNodeId) return;
-    if (!confirm('⚠️ آیا از حذف مطمئن هستید؟')) return;
-    fetch(`/api/node/${currentNodeId}`, { method: 'DELETE' }).then(() => {
-        currentNodeId = null;
-        $('#edit-form').hide();
-        $('#no-selection').show();
-        $('#breadcrumbs').hide();
-        loadData();
+    showConfirmModal('⚠️ آیا از حذف مطمئن هستید؟', function(result) {
+        if (!result) return;
+        fetch(`/api/node/${currentNodeId}`, { method: 'DELETE' }).then(() => {
+            currentNodeId = null;
+            $('#edit-form').hide();
+            $('#no-selection').show();
+            $('#breadcrumbs').hide();
+            loadData();
+        });
     });
 }
 
 function saveNode() {
-    if (!currentNodeId) { alert('ابتدا یک گره را انتخاب کنید'); return; }
+    if (!currentNodeId) { showAlertModal('ابتدا یک گره را انتخاب کنید'); return; }
     const node = currentData.nodes[currentNodeId];
     const updatedData = {
         name: $('#field-name').val(), partCode: $('#field-partCode').val(), specs: $('#field-specs').val(),
@@ -1240,7 +1251,7 @@ function saveNode() {
         updatedData.stages = tempStages;
     }
     fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
-    .then(() => { alert('✅ ذخیره شد'); loadData(); });
+    .then(() => { showAlertModal('✅ ذخیره شد'); loadData(); });
 }
 
 function exportExcel() {
@@ -1248,15 +1259,10 @@ function exportExcel() {
     Object.values(currentData.nodes).forEach(node => {
         if (node.type === 'product') products.push({ id: node.id, name: node.name, order_count: node.order_count || 0 });
     });
-    if (products.length === 0) { alert('هیچ محصولی تعریف نشده است!'); return; }
-    let productList = "محصول مورد نظر را انتخاب کنید:\n\n";
-    products.forEach((p, idx) => { productList += `${idx + 1}. ${p.name} (${p.order_count} سفارش)\n`; });
-    const productChoice = prompt(productList + "\nشماره محصول را وارد کنید:");
-    if (!productChoice || isNaN(productChoice)) return;
-    const productIndex = parseInt(productChoice) - 1;
-    if (productIndex < 0 || productIndex >= products.length) { alert('شماره محصول نامعتبر است!'); return; }
-    const selectedProduct = products[productIndex];
-    window.location.href = `/api/export/excel?product_id=${selectedProduct.id}`;
+    if (products.length === 0) { showAlertModal('هیچ محصولی تعریف نشده است!'); return; }
+    showProductSelectModal('انتخاب محصول برای خروجی Excel', products, function(pid) {
+        window.location.href = `/api/export/excel?product_id=${pid}`;
+    });
 }
 
 function exportSchematic() {
@@ -1264,15 +1270,10 @@ function exportSchematic() {
     Object.values(currentData.nodes).forEach(node => {
         if (node.type === 'product') products.push({ id: node.id, name: node.name });
     });
-    if (products.length === 0) { alert('هیچ محصولی تعریف نشده است!'); return; }
-    let productList = "محصول مورد نظر برای شماتیک را انتخاب کنید:\n\n";
-    products.forEach((p, idx) => { productList += `${idx + 1}. ${p.name}\n`; });
-    const productChoice = prompt(productList + "\nشماره محصول را وارد کنید:");
-    if (!productChoice || isNaN(productChoice)) return;
-    const productIndex = parseInt(productChoice) - 1;
-    if (productIndex < 0 || productIndex >= products.length) { alert('شماره محصول نامعتبر است!'); return; }
-    const selectedProduct = products[productIndex];
-    window.location.href = `/api/export/schematic?product_id=${selectedProduct.id}`;
+    if (products.length === 0) { showAlertModal('هیچ محصولی تعریف نشده است!'); return; }
+    showProductSelectModal('انتخاب محصول برای شماتیک', products, function(pid) {
+        window.location.href = `/api/export/schematic?product_id=${pid}`;
+    });
 }
 
 // Dark Mode
@@ -1292,16 +1293,18 @@ function updateThemeIcon(theme) {
 
 function sendPartEmail() {
     const email = $('#field-supplier-email').val().trim();
-    if (!email) { alert('لطفاً ابتدا ایمیل تأمین‌کننده را وارد کنید'); return; }
-    if (!confirm(`ارسال ایمیل هشدار کمبود به ${email}؟`)) return;
-    fetch('/api/send-part-email', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ part_id: currentNodeId, email: email })
-    })
-    .then(res => res.json())
-    .then(r => { alert(r.message || 'ارسال شد'); })
-    .catch(e => { alert('خطا در ارسال: ' + e.message); });
+    if (!email) { showAlertModal('لطفاً ابتدا ایمیل تأمین‌کننده را وارد کنید'); return; }
+    showConfirmModal(`ارسال ایمیل هشدار کمبود به ${email}؟`, function(result) {
+        if (!result) return;
+        fetch('/api/send-part-email', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ part_id: currentNodeId, email: email })
+        })
+        .then(res => res.json())
+        .then(r => { showAlertModal(r.message || 'ارسال شد'); })
+        .catch(e => { showAlertModal('خطا در ارسال: ' + e.message); });
+    });
 }
 
 function loadDocuments(nodeId) {
@@ -1345,16 +1348,18 @@ function uploadDocument(input) {
     .then(res => res.json())
     .then(r => {
         if (r.success) { input.value = ''; loadDocuments(currentNodeId); }
-        else { alert(r.error || 'خطا در بارگذاری'); }
+        else { showAlertModal(r.error || 'خطا در بارگذاری'); }
     })
-    .catch(e => { alert('خطا: ' + e.message); });
+    .catch(e => { showAlertModal('خطا: ' + e.message); });
 }
 
 function deleteDocument(docId) {
-    if (!confirm('آیا از حذف این مدرک مطمئن هستید؟')) return;
-    fetch(`/api/documents/${docId}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(r => { if (r.success) loadDocuments(currentNodeId); });
+    showConfirmModal('آیا از حذف این مدرک مطمئن هستید؟', function(result) {
+        if (!result) return;
+        fetch(`/api/documents/${docId}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(r => { if (r.success) loadDocuments(currentNodeId); });
+    });
 }
 
 // ───── Production Scheduling ─────
@@ -1398,27 +1403,8 @@ function loadSchedulesForProduct(nodeId) {
 
 function showAddSchedule() {
     const node = currentData.nodes[currentNodeId];
-    if (!node || node.type !== 'product') { alert('ابتدا یک محصول را انتخاب کنید'); return; }
-    const quantity = prompt('تعداد سفارش تولید:');
-    if (!quantity || isNaN(quantity)) return;
-    const startDate = prompt('تاریخ شروع (YYYY-MM-DD):');
-    const endDate = prompt('تاریخ پایان (YYYY-MM-DD):');
-    const notes = prompt('توضیحات (اختیاری):');
-    const productId = currentNodeId.replace('p', '');
-    fetch('/api/schedules', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            product_id: parseInt(productId),
-            quantity: parseInt(quantity),
-            start_date: startDate ? startDate + 'T00:00:00' : null,
-            end_date: endDate ? endDate + 'T23:59:59' : null,
-            notes: notes || ''
-        })
-    }).then(res => res.json()).then(() => {
-        alert('✅ برنامه تولید با موفقیت ثبت شد');
-        loadSchedulesForProduct(currentNodeId);
-    });
+    if (!node || node.type !== 'product') { showAlertModal('ابتدا یک محصول را انتخاب کنید'); return; }
+    showScheduleModal();
 }
 
 // Collapsible Panels
@@ -1430,6 +1416,134 @@ function togglePanel(panel) {
         $('#edit-panel').toggleClass('collapsed');
         $('#edit-panel .collapse-btn').text($('#edit-panel').hasClass('collapsed') ? '' : '▶');
     }
+}
+
+// ───── Generic Prompt Modal ─────
+window._promptCallback = null;
+
+function showPromptModal(title, label, defaultValue, callback) {
+    $('#prompt-modal-title').text(title);
+    $('#prompt-modal-label').text(label);
+    $('#prompt-modal-input').val(defaultValue || '');
+    window._promptCallback = callback;
+    $('#prompt-modal').fadeIn(150);
+    setTimeout(() => $('#prompt-modal-input').focus(), 200);
+}
+
+function submitPromptModal() {
+    const val = $('#prompt-modal-input').val().trim();
+    if (window._promptCallback) window._promptCallback(val);
+    window._promptCallback = null;
+    $('#prompt-modal').fadeOut(150);
+}
+
+function closePromptModal() {
+    window._promptCallback = null;
+    $('#prompt-modal').fadeOut(150);
+}
+
+// ───── Generic Confirm Modal ─────
+window._confirmCallback = null;
+
+function showConfirmModal(message, callback) {
+    $('#confirm-modal-message').text(message);
+    window._confirmCallback = callback;
+    $('#confirm-modal').fadeIn(150);
+}
+
+function submitConfirmModal(result) {
+    if (window._confirmCallback) window._confirmCallback(result);
+    window._confirmCallback = null;
+    $('#confirm-modal').fadeOut(150);
+}
+
+function closeConfirmModal() {
+    window._confirmCallback = null;
+    $('#confirm-modal').fadeOut(150);
+}
+
+// ───── Generic Alert Modal ─────
+function showAlertModal(message) {
+    $('#alert-modal-message').text(message);
+    $('#alert-modal').fadeIn(150);
+}
+
+function closeAlertModal() {
+    $('#alert-modal').fadeOut(150);
+}
+
+// ───── Product Select Modal ─────
+window._productSelectCallback = null;
+
+function showProductSelectModal(title, products, callback) {
+    $('#product-select-title').text(title);
+    const list = $('#product-select-list');
+    list.empty();
+    if (!products || products.length === 0) {
+        list.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">هیچ محصولی تعریف نشده</div>');
+    } else {
+        products.forEach((p, i) => {
+            list.append(`
+                <div class="select-item" data-pid="${p.id}">
+                    <div class="select-item-name">${escapeHtml(p.name)}</div>
+                    <div class="select-item-info">${p.order_count ? p.order_count + ' سفارش' : ''}</div>
+                </div>
+            `);
+        });
+        list.find('.select-item').on('click', function() {
+            const pid = $(this).data('pid');
+            if (window._productSelectCallback) window._productSelectCallback(pid);
+            window._productSelectCallback = null;
+            $('#product-select-modal').fadeOut(150);
+        });
+    }
+    window._productSelectCallback = callback;
+    $('#product-select-modal').fadeIn(150);
+}
+
+function closeProductSelectModal() {
+    window._productSelectCallback = null;
+    $('#product-select-modal').fadeOut(150);
+}
+
+// ───── Schedule Modal ─────
+function showScheduleModal() {
+    $('#sched-quantity').val(1);
+    $('#sched-start').val('');
+    $('#sched-end').val('');
+    $('#sched-notes').val('');
+    $('#schedule-modal').fadeIn(150);
+}
+
+function submitScheduleModal() {
+    const quantity = parseInt($('#sched-quantity').val()) || 1;
+    const startDate = $('#sched-start').val();
+    const endDate = $('#sched-end').val();
+    const notes = $('#sched-notes').val().trim();
+
+    const node = currentData.nodes[currentNodeId];
+    if (!node || node.type !== 'product') { showAlertModal('ابتدا یک محصول را انتخاب کنید'); return; }
+
+    const productId = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
+    fetch('/api/schedules', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            product_id: productId,
+            quantity: quantity,
+            start_date: startDate ? startDate + 'T00:00:00' : null,
+            end_date: endDate ? endDate + 'T23:59:59' : null,
+            notes: notes
+        })
+    }).then(res => res.json()).then(() => {
+        $('#schedule-modal').fadeOut(150);
+        showAlertModal('✅ برنامه تولید با موفقیت ثبت شد');
+        loadSchedulesForProduct(currentNodeId);
+    }).catch(e => showAlertModal('خطا: ' + e.message));
+}
+
+function closeScheduleModal() {
+    $('#schedule-modal').fadeOut(150);
 }
 
 // Keyboard shortcut for notifications
