@@ -97,7 +97,7 @@
 
                     <div id="edit-form" style="display:none;">
                         <div class="form-header">
-                            <h3><span id="edit-form-title">ویرایش: </span><span id="current-node" class="node-name"></span></h3>
+                            <h3><span id="current-node" class="node-name"></span></h3>
                             <div class="node-type-badge" id="node-type-badge"></div>
                         </div>
 
@@ -192,59 +192,51 @@
                             </div>
 
                             <div class="form-group">
-                                <label id="field-partType-label">نوع قطعه:</label>
-                                <select id="field-partType" disabled onchange="toggleSupplierField()">
-                                    <option value="">-- ${t('selectNode')} --</option>
-                                    <option value="buy"> ${t('buy')}</option>
-                                    <option value="make">🔧 ${t('make')}</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>وضعیت ساخت (خودکار بر اساس موجودی):</label>
+                                <label id="status-label">وضعیت ساخت (خودکار بر اساس موجودی):</label>
                                 <div class="status-tri-toggle">
                                     <input type="radio" id="status-not-started" name="status" value="not_started" disabled>
                                     <label for="status-not-started" class="toggle-option toggle-not-started">
                                         <span class="toggle-icon">🔴</span>
-                                        <span class="toggle-text">کسری موجودی</span>
+                                        <span id="status-txt-notstarted" class="toggle-text">کسری موجودی</span>
                                     </label>
                                     <input type="radio" id="status-in-progress" name="status" value="in_progress" disabled>
                                     <label for="status-in-progress" class="toggle-option toggle-in-progress">
                                         <span class="toggle-icon">🟡</span>
-                                        <span class="toggle-text">موجودی ناقص</span>
+                                        <span id="status-txt-inprogress" class="toggle-text">موجودی ناقص</span>
                                     </label>
                                     <input type="radio" id="status-completed" name="status" value="completed" disabled>
                                     <label for="status-completed" class="toggle-option toggle-completed">
                                         <span class="toggle-icon">🟢</span>
-                                        <span class="toggle-text">موجودی کافی</span>
+                                        <span id="status-txt-completed" class="toggle-text">موجودی کافی</span>
                                     </label>
                                 </div>
                             </div>
                             <div class="form-group" id="cost-summary-group" style="display:none;">
-                                <label>هزینه‌ها:</label>
+                                <label id="cost-label">هزینه‌ها:</label>
                                 <div id="cost-summary" style="background:var(--bg-tertiary);padding:10px;border-radius:6px;font-size:13px;"></div>
                             </div>
                             <div class="form-group">
-                                <label>مراحل ساخت (با هزینه):</label>
+                                <label id="stages-label">مراحل ساخت (با هزینه):</label>
                                 <div id="stages-list" class="stages-list-new"></div>
                                 <div class="stage-add">
                                     <input type="text" id="new-stage-name" list="stage-suggestions" placeholder="نام مرحله">
                                     <datalist id="stage-suggestions"></datalist>
-                                    <button onclick="addStage()" class="btn-small">➕ افزودن</button>
+                                    <button onclick="addStage()" class="btn-small">➕ <span id="add-stage-btn-text">افزودن</span></button>
                                 </div>
                             </div>
                         </div>
 
                         <div class="tab-content" id="tab-schedule">
                             <div class="form-group">
-                                <label>برنامه‌های تولید این محصول:</label>
+                                <label id="schedule-label">برنامه‌های تولید این محصول:</label>
                                 <div id="schedule-list" style="max-height:300px;overflow-y:auto;"></div>
-                                <button onclick="showAddSchedule()" class="btn-small" style="margin-top:8px;background:#3498db;">➕ برنامه جدید</button>
+                                <button onclick="showAddSchedule()" class="btn-small" style="margin-top:8px;background:#3498db;">➕ <span id="add-schedule-btn-text">برنامه جدید</span></button>
                             </div>
                         </div>
 
                         <div class="tab-content" id="tab-docs">
                             <div class="form-group">
-                                <label>مدارک فنی و فایل‌های CAD:</label>
+                                <label id="docs-label">مدارک فنی و فایل‌های CAD:</label>
                                 <div id="documents-list" style="max-height:300px;overflow-y:auto;"></div>
                                 <div class="add-image-box" onclick="document.getElementById('doc-upload').click()" style="margin-top:8px;">
                                     <span class="plus-icon">+</span>

@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>تنظیمات | BOM Manager</title>
+    <title id="page-title-settings">تنظیمات | BOM Manager</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .settings-layout { max-width: 700px; margin: 0 auto; padding: 30px 20px; }
@@ -15,24 +15,26 @@
         .setting-label { font-weight: bold; font-size: 14px; color: var(--text-primary); }
         .setting-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
         .setting-input { width: 300px; }
-        .setting-input input { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 5px; font-family: inherit; background: var(--bg-secondary); color: var(--text-primary); }
-        .setting-input input:focus { outline: none; border-color: var(--accent-green); }
+        .setting-input input, .setting-input select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 5px; font-family: inherit; background: var(--bg-secondary); color: var(--text-primary); }
+        .setting-input input:focus, .setting-input select:focus { outline: none; border-color: var(--accent-green); }
         .btn-test { background: #3498db; color: white; border: none; border-radius: 5px; padding: 8px 16px; cursor: pointer; font-size: 13px; }
         .btn-test:hover { background: #2980b9; }
         .msg-box { padding: 10px 14px; border-radius: 5px; margin-top: 12px; font-size: 13px; display: none; }
         .msg-box.success { display: block; background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .msg-box.error { display: block; background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .setting-inline { display: flex; gap: 10px; align-items: center; }
     </style>
 </head>
 <body>
     <header class="app-header">
         <div class="header-right">
-            <h1 class="app-title">⚙ تنظیمات سیستم</h1>
+            <h1 class="app-title" id="settings-title">⚙ تنظیمات سیستم</h1>
         </div>
         <div class="header-left">
-            <span style="color:rgba(255,255,255,0.7);font-size:13px;">{{ current_user.username }}</span>
-            <a href="{{ url_for('index') }}" class="header-btn" style="text-decoration:none;font-size:13px;">🏠 بازگشت</a>
-            <a href="{{ url_for('logout_page') }}" class="header-btn" style="text-decoration:none;font-size:13px;">🚪 خروج</a>
+            <span style="color:rgba(255,255,255,0.7);font-size:13px;" id="username-label">{{ current_user.username }}</span>
+            <button class="header-btn" onclick="toggleLang()" id="lang-toggle-settings" style="font-size:13px;">English</button>
+            <a href="{{ url_for('index') }}" class="header-btn" id="back-link" style="text-decoration:none;font-size:13px;">🏠 بازگشت</a>
+            <a href="{{ url_for('logout_page') }}" class="header-btn" id="logout-link-settings" style="text-decoration:none;font-size:13px;">🚪 خروج</a>
         </div>
     </header>
     <div class="settings-layout">
@@ -46,34 +48,34 @@
 
         <form method="POST" action="{{ url_for('settings_page') }}">
         <div class="settings-card">
-            <div class="card-header"><h3>تنظیمات ایمیل (SMTP)</h3></div>
+            <div class="card-header"><h3 id="email-settings-title">تنظیمات ایمیل (SMTP)</h3></div>
             <div class="card-body">
                 <div class="setting-row">
-                    <div><div class="setting-label">سرور SMTP</div><div class="setting-desc">مثلاً smtp.gmail.com</div></div>
-                    <div class="setting-input"><input type="text" name="mail_server" value="{{ settings.mail_server }}" placeholder="smtp.gmail.com"></div>
+                    <div><div class="setting-label" id="smtp-server-label">سرور SMTP</div><div class="setting-desc" id="smtp-server-desc">مثلاً smtp.gmail.com</div></div>
+                    <div class="setting-input"><input type="text" name="mail_server" value="{{ settings.mail_server }}" placeholder="smtp.gmail.com" id="smtp-server-input"></div>
                 </div>
                 <div class="setting-row">
-                    <div><div class="setting-label">پورت SMTP</div><div class="setting-desc">معمولاً 587 (TLS) یا 465 (SSL)</div></div>
-                    <div class="setting-input"><input type="number" name="mail_port" value="{{ settings.mail_port }}" placeholder="587"></div>
+                    <div><div class="setting-label" id="smtp-port-label">پورت SMTP</div><div class="setting-desc" id="smtp-port-desc">معمولاً 587 (TLS) یا 465 (SSL)</div></div>
+                    <div class="setting-input"><input type="number" name="mail_port" value="{{ settings.mail_port }}" placeholder="587" id="smtp-port-input"></div>
                 </div>
                 <div class="setting-row">
-                    <div><div class="setting-label">نام کاربری</div><div class="setting-desc">آدرس ایمیل کامل</div></div>
-                    <div class="setting-input"><input type="text" name="mail_username" value="{{ settings.mail_username }}" placeholder="your@email.com"></div>
+                    <div><div class="setting-label" id="smtp-user-label">نام کاربری</div><div class="setting-desc" id="smtp-user-desc">آدرس ایمیل کامل</div></div>
+                    <div class="setting-input"><input type="text" name="mail_username" value="{{ settings.mail_username }}" placeholder="your@email.com" id="smtp-user-input"></div>
                 </div>
                 <div class="setting-row">
-                    <div><div class="setting-label">رمز عبور</div><div class="setting-desc">کلمه عبور یا App Password</div></div>
-                    <div class="setting-input"><input type="password" name="mail_password" value="{{ settings.mail_password }}" placeholder="••••••••"></div>
+                    <div><div class="setting-label" id="smtp-pass-label">رمز عبور</div><div class="setting-desc" id="smtp-pass-desc">کلمه عبور یا App Password</div></div>
+                    <div class="setting-input"><input type="password" name="mail_password" value="{{ settings.mail_password }}" placeholder="••••••••" id="smtp-pass-input"></div>
                 </div>
                 <div class="setting-row">
-                    <div><div class="setting-label">استفاده از TLS</div><div class="setting-desc">برای Gmail و大多数 سرورها روشن باشد</div></div>
+                    <div><div class="setting-label" id="smtp-tls-label">استفاده از TLS</div><div class="setting-desc" id="smtp-tls-desc">برای Gmail و بیشتر سرورها روشن باشد</div></div>
                     <div class="setting-input">
                         <input type="hidden" name="mail_use_tls" value="false">
-                        <input type="checkbox" name="mail_use_tls" value="true" {% if settings.mail_use_tls == 'true' %}checked{% endif %} style="width:auto;transform:scale(1.3);">
+                        <input type="checkbox" name="mail_use_tls" value="true" {% if settings.mail_use_tls == 'true' %}checked{% endif %} style="width:auto;transform:scale(1.3);" id="smtp-tls-input">
                     </div>
                 </div>
                 <div style="margin-top:20px;display:flex;gap:10px;">
-                    <button type="submit" class="btn-primary" style="flex:1;padding:10px;">💾 ذخیره تنظیمات</button>
-                    <button type="button" class="btn-test" onclick="testEmail()" style="padding:10px 20px;">✉ آزمایش ایمیل</button>
+                    <button type="submit" class="btn-primary" style="flex:1;padding:10px;" id="save-settings-btn">💾 ذخیره تنظیمات</button>
+                    <button type="button" class="btn-test" onclick="testEmail()" style="padding:10px 20px;" id="test-email-btn">✉ آزمایش ایمیل</button>
                 </div>
                 <div id="email-test-result" class="msg-box"></div>
             </div>
@@ -81,48 +83,134 @@
         </form>
 
         <div class="settings-card">
-            <div class="card-header"><h3>🔐 تنظیمات حساب</h3></div>
+            <div class="card-header"><h3 id="display-settings-title">🖥 تنظیمات نمایش</h3></div>
             <div class="card-body">
                 <div class="setting-row">
-                    <div><div class="setting-label">نام کاربری</div><div class="setting-desc">شما با این نام وارد می‌شوید</div></div>
-                    <div style="font-weight:bold;font-size:14px;">{{ current_user.username }}</div>
+                    <div><div class="setting-label" id="font-size-label">اندازه فونت</div><div class="setting-desc" id="font-size-desc">تنظیم اندازه متن در سراسر برنامه</div></div>
+                    <div class="setting-input">
+                        <select id="font-size-select" onchange="changeFontSize(this.value)">
+                            <option value="small">کوچک</option>
+                            <option value="medium" selected>متوسط</option>
+                            <option value="large">بزرگ</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="setting-row">
-                    <div><div class="setting-label">نقش</div><div class="setting-desc">دسترسی شما در سیستم</div></div>
-                    <div>{{ current_user.role }}</div>
+                    <div><div class="setting-label" id="theme-label">تم</div><div class="setting-desc" id="theme-desc">تغییر بین تم روشن و تاریک</div></div>
+                    <div class="setting-input">
+                        <select id="theme-select" onchange="changeTheme(this.value)">
+                            <option value="light">روشن</option>
+                            <option value="dark">تاریک</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div><div class="setting-label" id="language-label">زبان</div><div class="setting-desc" id="language-desc">انتخاب زبان رابط کاربری</div></div>
+                    <div class="setting-input">
+                        <select id="lang-select" onchange="changeLangSettings(this.value)">
+                            <option value="fa">فارسی</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="card-header"><h3 id="account-settings-title">🔐 تنظیمات حساب</h3></div>
+            <div class="card-body">
+                <div class="setting-row">
+                    <div><div class="setting-label" id="account-user-label">نام کاربری</div><div class="setting-desc" id="account-user-desc">شما با این نام وارد می‌شوید</div></div>
+                    <div style="font-weight:bold;font-size:14px;" id="account-username">{{ current_user.username }}</div>
+                </div>
+                <div class="setting-row">
+                    <div><div class="setting-label" id="account-role-label">نقش</div><div class="setting-desc" id="account-role-desc">دسترسی شما در سیستم</div></div>
+                    <div id="account-role">{{ current_user.role }}</div>
                 </div>
             </div>
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
-    function testEmail() {
-        const btn = $('.btn-test');
-        btn.text('⏳ در حال ارسال...').prop('disabled', true);
-        $('#email-test-result').removeClass('success error').hide();
-        $.ajax({
-            url: '/api/test-email',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
-                mail_server: $('input[name="mail_server"]').val(),
-                mail_port: parseInt($('input[name="mail_port"]').val()) || 587,
-                mail_username: $('input[name="mail_username"]').val(),
-                mail_password: $('input[name="mail_password"]').val(),
-                mail_use_tls: $('input[name="mail_use_tls"]').is(':checked')
-            }),
-            success: function(r) {
-                $('#email-test-result').addClass('success').text('✅ ' + r.message).show();
-            },
-            error: function(xhr) {
-                const msg = xhr.responseJSON ? xhr.responseJSON.message : 'خطا در ارسال';
-                $('#email-test-result').addClass('error').text('❌ ' + msg).show();
-            },
-            complete: function() {
-                btn.text('✉ آزمایش ایمیل').prop('disabled', false);
-            }
+        let settingsLang = localStorage.getItem('appLang') || 'fa';
+
+        function applySettingsLang() {
+            const l = settingsLang;
+            const isFa = l === 'fa';
+            const isEn = l === 'en';
+
+            document.documentElement.setAttribute('dir', isFa ? 'rtl' : 'ltr');
+            $('#lang-toggle-settings').text(isFa ? 'English' : 'فارسی');
+            $('#settings-title').text(isFa ? '⚙ تنظیمات سیستم' : '⚙ System Settings');
+            $('#back-link').text(isFa ? '🏠 بازگشت' : '🏠 Back');
+            $('#logout-link-settings').text(isFa ? '🚪 خروج' : '🚪 Logout');
+            $('#email-settings-title').text(isFa ? 'تنظیمات ایمیل (SMTP)' : 'Email Settings (SMTP)');
+            $('#smtp-server-label').text(isFa ? 'سرور SMTP' : 'SMTP Server');
+            $('#smtp-server-desc').text(isFa ? 'مثلاً smtp.gmail.com' : 'e.g. smtp.gmail.com');
+            $('#smtp-port-label').text(isFa ? 'پورت SMTP' : 'SMTP Port');
+            $('#smtp-port-desc').text(isFa ? 'معمولاً 587 (TLS) یا 465 (SSL)' : 'Usually 587 (TLS) or 465 (SSL)');
+            $('#smtp-user-label').text(isFa ? 'نام کاربری' : 'Username');
+            $('#smtp-user-desc').text(isFa ? 'آدرس ایمیل کامل' : 'Full email address');
+            $('#smtp-pass-label').text(isFa ? 'رمز عبور' : 'Password');
+            $('#smtp-pass-desc').text(isFa ? 'کلمه عبور یا App Password' : 'Password or App Password');
+            $('#smtp-tls-label').text(isFa ? 'استفاده از TLS' : 'Use TLS');
+            $('#smtp-tls-desc').text(isFa ? 'برای Gmail و بیشتر سرورها روشن باشد' : 'Enable for Gmail and most servers');
+            $('#save-settings-btn').html(isFa ? '💾 ذخیره تنظیمات' : '💾 Save Settings');
+            $('#test-email-btn').text(isFa ? '✉ آزمایش ایمیل' : '✉ Test Email');
+            $('#display-settings-title').text(isFa ? '🖥 تنظیمات نمایش' : '🖥 Display Settings');
+            $('#font-size-label').text(isFa ? 'اندازه فونت' : 'Font Size');
+            $('#font-size-desc').text(isFa ? 'تنظیم اندازه متن در سراسر برنامه' : 'Adjust text size across the app');
+            $('#theme-label').text(isFa ? 'تم' : 'Theme');
+            $('#theme-desc').text(isFa ? 'تغییر بین تم روشن و تاریک' : 'Switch between light and dark theme');
+            $('#language-label').text(isFa ? 'زبان' : 'Language');
+            $('#language-desc').text(isFa ? 'انتخاب زبان رابط کاربری' : 'Select UI language');
+            $('#account-settings-title').text(isFa ? '🔐 تنظیمات حساب' : '🔐 Account Settings');
+            $('#account-user-label').text(isFa ? 'نام کاربری' : 'Username');
+            $('#account-user-desc').text(isFa ? 'شما با این نام وارد می‌شوید' : 'You log in with this name');
+            $('#account-role-label').text(isFa ? 'نقش' : 'Role');
+            $('#account-role-desc').text(isFa ? 'دسترسی شما در سیستم' : 'Your access level in the system');
+            $('#page-title-settings').text(isFa ? 'تنظیمات | BOM Manager' : 'Settings | BOM Manager');
+        }
+
+        function changeFontSize(size) {
+            const sizes = { small: '12px', medium: '14px', large: '16px' };
+            document.documentElement.style.fontSize = sizes[size] || '14px';
+            localStorage.setItem('fontSize', size);
+        }
+
+        function changeTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        }
+
+        function changeLangSettings(lang) {
+            settingsLang = lang;
+            localStorage.setItem('appLang', lang);
+            currentLang = lang;
+            applySettingsLang();
+            // persist to main page
+            if (typeof applyLang === 'function') applyLang();
+        }
+
+        $(document).ready(function() {
+            // restore saved font size
+            const savedFontSize = localStorage.getItem('fontSize') || 'medium';
+            $('#font-size-select').val(savedFontSize);
+            changeFontSize(savedFontSize);
+
+            // restore saved theme
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            $('#theme-select').val(savedTheme);
+            document.documentElement.setAttribute('data-theme', savedTheme);
+
+            // restore saved lang
+            const savedLang = localStorage.getItem('appLang') || 'fa';
+            settingsLang = savedLang;
+            currentLang = savedLang;
+            $('#lang-select').val(savedLang);
+            applySettingsLang();
         });
-    }
     </script>
 </body>
 </html>

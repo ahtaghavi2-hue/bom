@@ -131,7 +131,6 @@ const LANG = {
         required: 'نیاز',
         order: 'سفارش',
         stagesCount: 'مرحله',
-        partType: 'نوع قطعه',
         selectOption: '-- انتخاب کنید --',
         code: 'کد',
         download: 'دانلود',
@@ -276,7 +275,6 @@ const LANG = {
         required: 'Required',
         order: 'Order',
         stagesCount: 'Stages',
-        partType: 'Part Type',
         selectOption: '-- Select --',
         code: 'Code',
         download: 'Download',
@@ -353,11 +351,21 @@ function applyLang() {
     $('#add-image-label').text(t('images'));
     $('#add-doc-label').text(t('techDocs'));
     $('#part-email-label').text(t('supplierEmail'));
-    $('#edit-form-title').text(t('edit') + ': ');
     $('#gallery-label').text(t('images') + ':');
     $('#send-email-text').text(t('sendEmail'));
     $('#send-email-btn').prop('title', t('sendEmail'));
     $('#email-desc').text(currentLang === 'fa' ? 'برای اطلاع از کمبود موجودی یا وضعیت ساخت به این آدرس ایمیل ارسال می‌شود' : 'Emails are sent to this address for shortage alerts and production status updates.');
+    $('#status-label').text(t('status'));
+    $('#status-txt-notstarted').text(t('shortage'));
+    $('#status-txt-inprogress').text(t('partialStock'));
+    $('#status-txt-completed').text(t('sufficient'));
+    $('#cost-label').text(t('cost') + ':');
+    $('#stages-label').text(t('manufacturing') + ':');
+    $('#new-stage-name').attr('placeholder', t('stageName'));
+    $('#add-stage-btn-text').text(t('add'));
+    $('#schedule-label').text(t('schedule') + ':');
+    $('#add-schedule-btn-text').text(t('addSchedule'));
+    $('#docs-label').text(t('techDocs') + ':');
     $('#progress-label').text(t('progress'));
     // modal buttons
     $('.btn-ok').text(t('ok'));
@@ -379,6 +387,10 @@ $(document).ready(function() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
+    // restore font size
+    const savedFontSize = localStorage.getItem('fontSize') || 'medium';
+    const sizeMap = { small: '12px', medium: '14px', large: '16px' };
+    document.documentElement.style.fontSize = sizeMap[savedFontSize] || '14px';
 
     const savedOpened = localStorage.getItem('openedNodes');
     if (savedOpened) openedNodes = JSON.parse(savedOpened);
@@ -940,8 +952,6 @@ function showEditForm(node) {
 
         $('#field-supplier').val(node.supplier || '');
         $('#field-supplier-email').val(node.supplier_email || '');
-        toggleSupplierField();
-
         tempStages = JSON.parse(JSON.stringify(node.stages || []));
         tempStages.forEach(s => {
             if (!s.status) {
@@ -989,10 +999,7 @@ function updateProgressBar() {
     $('#progress-remaining').text(`${total - completed} ` + t('remainingCount'));
 }
 
-function toggleSupplierField() {
-    const partType = $('#field-partType').val();
-    $('#supplier-group').toggle(partType === 'buy');
-}
+
 
 function renderImageGallery(images) {
     const gallery = $('#image-gallery');
