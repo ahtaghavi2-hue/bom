@@ -117,30 +117,6 @@ class Stage(db.Model):
     actual_hours = db.Column(db.Float, default=0.0)
     manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'), nullable=True)
 
-    # ───── فاز ۱: فیلدهای PERT و زمان‌بندی پیشرفته ─────
-    time_optimistic = db.Column(db.Float, default=0.0)  # t_o - زمان خوش‌بینانه (ساعت)
-    time_most_likely = db.Column(db.Float, default=0.0)  # t_m - زمان محتمل (ساعت)
-    time_pessimistic = db.Column(db.Float, default=0.0)  # t_p - زمان بدبینانه (ساعت)
-    time_expected = db.Column(db.Float, default=0.0)  # t_e - زمان مورد انتظار (محاسبه‌شده)
-    time_variance = db.Column(db.Float, default=0.0)  # σ² - واریانس زمان
-    
-    cost_material = db.Column(db.Float, default=0.0)  # هزینه مواد
-    cost_labor = db.Column(db.Float, default=0.0)  # هزینه نیروی کار
-    cost_overhead = db.Column(db.Float, default=0.0)  # هزینه سربار
-    storage_cost_per_day = db.Column(db.Float, default=0.0)  # هزینه انبارداری روزانه
-    
-    required_resource_type = db.Column(db.String(100))  # نوع منبع مورد نیاز
-    resource_capacity_required = db.Column(db.Float, default=1.0)  # ظرفیت مورد نیاز
-    
-    predecessor_ids = db.Column(db.Text)  # لیست ID مراحل قبلی (JSON)
-    is_critical = db.Column(db.Boolean, default=False)  # آیا در مسیر بحرانی است
-    slack_time = db.Column(db.Float, default=0.0)  # زمان شناوری
-    
-    scheduled_start = db.Column(db.DateTime)  # زمان شروع برنامه‌ریزی‌شده
-    scheduled_end = db.Column(db.DateTime)  # زمان پایان برنامه‌ریزی‌شده
-    actual_start = db.Column(db.DateTime)  # زمان شروع واقعی
-    actual_end = db.Column(db.DateTime)  # زمان پایان واقعی
-
     manufacturer = db.relationship('Manufacturer', lazy='select')
 
     @property
@@ -154,36 +130,6 @@ class Stage(db.Model):
     @property
     def actual_total(self):
         return self.actual_material_cost + self.actual_labor_cost + self.actual_overhead
-
-    @property
-    def pert_time_expected(self):
-        """محاسبه زمان مورد انتظار با فرمول PERT: (t_o + 4*t_m + t_p) / 6"""
-        if self.time_optimistic or self.time_most_likely or self.time_pessimistic:
-            return (self.time_optimistic + 4 * self.time_most_likely + self.time_pessimistic) / 6
-        return self.time_expected if self.time_expected else self.estimated_hours
-
-    @property
-    def pert_variance(self):
-        """محاسبه واریانس با فرمول PERT: ((t_p - t_o) / 6)^2"""
-        if self.time_pessimistic and self.time_optimistic:
-            return ((self.time_pessimistic - self.time_optimistic) / 6) ** 2
-        return self.time_variance
-
-    @property
-    def total_cost(self):
-        """جمع کل هزینه‌های مرحله"""
-        return self.cost_material + self.cost_labor + self.cost_overhead
-
-    @property
-    def predecessor_list(self):
-        """بازگرداندن لیست ID مراحل قبلی از فیلد JSON"""
-        import json
-        if self.predecessor_ids:
-            try:
-                return json.loads(self.predecessor_ids)
-            except:
-                return []
-        return []
 
 class Image(db.Model):
     __tablename__ = 'images'
@@ -206,18 +152,6 @@ class ProductionSchedule(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     notes = db.Column(db.Text)
 
-    # ───── فاز ۱: فیلدهای تنظیمات پروژه برای زمان‌بندی ─────
-    target_delivery_date = db.Column(db.DateTime)  # تاریخ تحویل هدف
-    budget_limit = db.Column(db.Float, default=0.0)  # محدودیت بودجه پروژه
-    risk_tolerance = db.Column(db.Float, default=0.5)  # سطح ریسک‌پذیری (۰ تا ۱)
-    resource_constraints = db.Column(db.Text)  # محدودیت‌های منابع (JSON)
-    
-    # فیلدهای محاسباتی ذخیره‌شده
-    critical_path_duration = db.Column(db.Float, default=0.0)  # مدت مسیر بحرانی
-    total_project_cost = db.Column(db.Float, default=0.0)  # هزینه کل پروژه
-    completion_probability = db.Column(db.Float, default=0.0)  # احتمال تکمیل به موقع
-    monte_carlo_runs = db.Column(db.Integer, default=0)  # تعداد اجرای شبیه‌سازی مونت‌کارلو
-    
     work_orders = db.relationship('WorkOrder', backref='schedule', lazy='dynamic', cascade='all, delete-orphan')
 
 class WorkOrder(db.Model):
@@ -564,143 +498,4 @@ class VendorRating(db.Model):
             'notes': self.notes,
             'rated_by': self.rated_by,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
-
-
-# ───── فاز ۱: مدل‌های جدید برای زمان‌بندی و منابع ─────
-
-class Resource(db.Model):
-    """مدل تعریف منابع کارگاه (دستگاه‌ها، اپراتورها، فضا)"""
-    __tablename__ = 'resources'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False)
-    resource_type = db.Column(db.String(50), nullable=False)  # machine, operator, space, tool
-    capacity = db.Column(db.Float, default=1.0)  # ظرفیت کل (ساعت در روز یا تعداد)
-    available_from = db.Column(db.Time, default=None)  # ساعت شروع دسترسی
-    available_to = db.Column(db.Time, default=None)  # ساعت پایان دسترسی
-    work_days = db.Column(db.String(50), default='mon-fri')  # روزهای کاری
-    cost_per_hour = db.Column(db.Float, default=0.0)  # هزینه هر ساعت استفاده
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    assignments = db.relationship('ResourceAssignment', backref='resource', lazy='dynamic', cascade='all, delete-orphan')
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'resource_type': self.resource_type,
-            'capacity': self.capacity,
-            'available_from': self.available_from.isoformat() if self.available_from else None,
-            'available_to': self.available_to.isoformat() if self.available_to else None,
-            'work_days': self.work_days,
-            'cost_per_hour': self.cost_per_hour,
-            'is_active': self.is_active,
-        }
-
-
-class ResourceAssignment(db.Model):
-    """تخصیص منابع به مراحل ساخت"""
-    __tablename__ = 'resource_assignments'
-    id = db.Column(db.Integer, primary_key=True)
-    stage_id = db.Column(db.Integer, db.ForeignKey('stages.id'), nullable=False)
-    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id'), nullable=False)
-    scheduled_date = db.Column(db.Date, nullable=False)
-    hours_allocated = db.Column(db.Float, default=0.0)
-    actual_hours = db.Column(db.Float, default=0.0)
-    status = db.Column(db.String(20), default='planned')  # planned, in_progress, completed
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'stage_id': self.stage_id,
-            'resource_id': self.resource_id,
-            'scheduled_date': self.scheduled_date.isoformat() if self.scheduled_date else None,
-            'hours_allocated': self.hours_allocated,
-            'actual_hours': self.actual_hours,
-            'status': self.status,
-        }
-
-
-class ProjectSettings(db.Model):
-    """تنظیمات سراسری پروژه برای زمان‌بندی و برآورد هزینه"""
-    __tablename__ = 'project_settings'
-    id = db.Column(db.Integer, primary_key=True)
-    schedule_id = db.Column(db.Integer, db.ForeignKey('production_schedules.id'), nullable=False)
-    key = db.Column(db.String(100), nullable=False)
-    value = db.Column(db.Text)
-    value_type = db.Column(db.String(20), default='string')  # string, number, boolean, json
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    __table_args__ = (
-        db.UniqueConstraint('schedule_id', 'key', name='uq_project_setting'),
-    )
-    
-    schedule = db.relationship('ProductionSchedule', backref=db.backref('settings', lazy='dynamic', cascade='all, delete-orphan'))
-    
-    def to_dict(self):
-        import json
-        value = self.value
-        if self.value_type == 'number':
-            try:
-                value = float(value)
-            except:
-                pass
-        elif self.value_type == 'boolean':
-            value = value.lower() in ('true', '1', 'yes')
-        elif self.value_type == 'json':
-            try:
-                value = json.loads(value)
-            except:
-                pass
-        return {
-            'id': self.id,
-            'schedule_id': self.schedule_id,
-            'key': self.key,
-            'value': value,
-            'value_type': self.value_type,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-        }
-
-
-class ScheduleScenario(db.Model):
-    """ذخیره سناریوهای مختلف زمان‌بندی برای مقایسه"""
-    __tablename__ = 'schedule_scenarios'
-    id = db.Column(db.Integer, primary_key=True)
-    schedule_id = db.Column(db.Integer, db.ForeignKey('production_schedules.id'), nullable=False)
-    name = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    scenario_type = db.Column(db.String(50), default='custom')  # optimistic, pessimistic, realistic, custom
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    is_active = db.Column(db.Boolean, default=False)
-    
-    # داده‌های ذخیره‌شده سناریو
-    total_duration = db.Column(db.Float, default=0.0)
-    total_cost = db.Column(db.Float, default=0.0)
-    critical_path_nodes = db.Column(db.Text)  # JSON لیست نودهای مسیر بحرانی
-    risk_score = db.Column(db.Float, default=0.0)
-    completion_probability = db.Column(db.Float, default=0.0)
-    
-    creator = db.relationship('User', backref='scenarios')
-    schedule = db.relationship('ProductionSchedule', backref=db.backref('scenarios', lazy='dynamic', cascade='all, delete-orphan'))
-    
-    def to_dict(self):
-        import json
-        return {
-            'id': self.id,
-            'schedule_id': self.schedule_id,
-            'name': self.name,
-            'description': self.description,
-            'scenario_type': self.scenario_type,
-            'created_by': self.created_by,
-            'creator_name': self.creator.username if self.creator else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'is_active': self.is_active,
-            'total_duration': self.total_duration,
-            'total_cost': self.total_cost,
-            'critical_path_nodes': json.loads(self.critical_path_nodes) if self.critical_path_nodes else [],
-            'risk_score': self.risk_score,
-            'completion_probability': self.completion_probability,
         }
