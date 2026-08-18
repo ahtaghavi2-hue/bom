@@ -1,11 +1,40 @@
+```gitignore
+# Python
 __pycache__/
 *.pyc
-instance/
-*.db
-uploads/
-.env
-*.egg-info/
-dist/
-build/
-.venv/
+*.pyo
+*.pyd
+.Python
+env/
 venv/
+.venv/
+.env
+.env.local
+.env.*
+.python-version
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+```
