@@ -1,4 +1,4 @@
-```gitignore
+```
 # Python
 __pycache__/
 *.pyc
@@ -8,33 +8,45 @@ __pycache__/
 env/
 venv/
 .venv/
-.env
-.env.local
-.env.*
-.python-version
+.ENV
+.ENV.*
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing
 .coverage
 coverage/
 htmlcov/
-.pytest_cache/
-.mypy_cache/
+.noserc
+.tox/
+.coverage.*
 
-# Build and distribution artifacts
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# IDE and editor files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *.tmp
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
 
 # Logs
 *.log
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Coverage
+.coverage
+.coverage.*
 ```
