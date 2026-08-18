@@ -19,6 +19,7 @@ from models import Product, Assembly, Part, Stage, Image, Document, Setting, Use
 from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
 from auth import auth_bp
 from api_v2 import api_bp
+from modern import modern_bp
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -38,6 +39,7 @@ def load_user(user_id):
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(api_bp)
+app.register_blueprint(modern_bp)
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -96,8 +98,11 @@ def _build_node_dict(obj, typ):
         supplier = r.supplier or ''
         for s in r.stages.order_by(Stage.sort_order).all():
             stages.append({
+                'id': s.id,
                 'name': s.name,
                 'status': s.status or 'not_started',
+                'manufacturer_id': s.manufacturer_id,
+                'manufacturer_name': s.manufacturer_name,
                 'estimated_material_cost': s.estimated_material_cost or 0,
                 'actual_material_cost': s.actual_material_cost or 0,
                 'estimated_labor_cost': s.estimated_labor_cost or 0,
@@ -294,6 +299,7 @@ def update_node(node_id):
             for idx, s in enumerate(req['stages']):
                 st = Stage(part_id=obj.id, name=s.get('name', 'Stage'),
                            status=s.get('status', 'not_started'), sort_order=idx,
+                           manufacturer_id=s.get('manufacturer_id') or None,
                            estimated_material_cost=s.get('estimated_material_cost', 0),
                            actual_material_cost=s.get('actual_material_cost', 0),
                            estimated_labor_cost=s.get('estimated_labor_cost', 0),
@@ -783,6 +789,33 @@ def delete_document(doc_id):
 def init_db():
     with app.app_context():
         db.create_all()
+        from sqlalchemy import inspect, text
+        insp = inspect(db.engine)
+        existing_tables = insp.get_table_names()
+        if 'stages' in existing_tables:
+            cols = [c['name'] for c in insp.get_columns('stages')]
+            if 'manufacturer_id' not in cols:
+                db.session.execute(text('ALTER TABLE stages ADD COLUMN manufacturer_id INTEGER'))
+                db.session.commit()
+                print('[OK] Added stages.manufacturer_id column')
+        if 'manufacturers' in existing_tables:
+            cols = [c['name'] for c in insp.get_columns('manufacturers')]
+            for col_name, col_type, default in [
+                ('quality_score', 'FLOAT', 70.0),
+                ('reliability_score', 'FLOAT', 70.0),
+                ('delivery_days', 'INTEGER', 7),
+                ('rating_count', 'INTEGER', 0),
+            ]:
+                if col_name not in cols:
+                    db.session.execute(text(f'ALTER TABLE manufacturers ADD COLUMN {col_name} {col_type} DEFAULT {default}'))
+                    db.session.commit()
+                    print(f'[OK] Added manufacturers.{col_name} column')
+        if 'parts' in existing_tables:
+            cols = [c['name'] for c in insp.get_columns('parts')]
+            if 'vector_embedding' not in cols:
+                db.session.execute(text('ALTER TABLE parts ADD COLUMN vector_embedding TEXT'))
+                db.session.commit()
+                print('[OK] Added parts.vector_embedding column')
         if not User.query.filter_by(username='admin').first():
             admin = User(username='admin', email='admin@bom-system.com', role='admin')
             admin.set_password('admin123')

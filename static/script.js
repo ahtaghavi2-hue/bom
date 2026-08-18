@@ -6,7 +6,6 @@ let currentView = 'tree';
 let currentMainView = 'tree';
 let inlineEditContext = null;
 let stageDetailsMap = {};
-let partManufacturers = [];
 let allManufacturers = [];
 let expandedStages = {};
 let _autoSaveTimer = null;
@@ -59,12 +58,16 @@ const LANG = {
         stageName: 'نام مرحله',
         stageDetails: 'جزئیات تولید',
         addDetail: 'افزودن جزئیات',
-        manufacturers: 'سازندگان قطعه',
+        manufacturers: 'سازنده‌ها',
         addManufacturer: 'افزودن سازنده',
         noManufacturer: 'هیچ سازنده‌ای ثبت نشده',
         createManufacturer: 'ایجاد سازنده جدید',
+        editManufacturer: 'ویرایش سازنده',
+        deleteManufacturer: 'حذف سازنده',
         selectManufacturer: 'انتخاب سازنده',
-        allAdded: 'همه سازنده‌ها قبلاً اضافه شده‌اند',
+        none: 'بدون',
+        manageManufacturers: 'مدیریت سازنده‌ها',
+        manufacturer: 'سازنده',
         confirmDelete: 'آیا از حذف مطمئن هستید؟',
         saveSuccess: 'با موفقیت ذخیره شد',
         saveError: 'خطا در ذخیره',
@@ -156,6 +159,48 @@ const LANG = {
         mfrAddress: 'آدرس',
         mfrNotes: 'یادداشت',
         mfrSocial: 'شبکه اجتماعی',
+        // PLM
+        versions: 'نسخه‌ها',
+        changeRequests: 'درخواست تغییر',
+        noVersions: 'هیچ نسخه‌ای ثبت نشده',
+        noChangeRequests: 'هیچ درخواست تغییر ثبت نشده',
+        createVersion: 'ایجاد نسخه جدید',
+        versionNumber: 'شماره نسخه',
+        changeSummary: 'خلاصه تغییرات',
+        versionCreated: 'نسخه با موفقیت ایجاد شد',
+        activateVersion: 'فعال‌سازی',
+        versionActivated: 'نسخه فعال شد',
+        changeRequest: 'درخواست تغییر',
+        createChangeRequest: 'ایجاد درخواست تغییر',
+        description: 'توضیحات',
+        justification: 'موجبات/استدلال',
+        submitChangeRequest: 'ثبت درخواست',
+        changeRequestSubmitted: 'درخواست تغییر ثبت شد',
+        pending: 'در انتظار بررسی',
+        approved: 'تأیید شده',
+        rejected: 'رد شده',
+        voteApprove: 'تأیید',
+        voteReject: 'رد',
+        voteSubmitted: 'رأی شما ثبت شد',
+        alreadyVoted: 'شما قبلاً در این درخواست رأی داده‌اید',
+        reviewChangeRequest: 'بررسی درخواست',
+        approve: 'تأیید',
+        reject: 'رد',
+        reviewed: 'بررسی شده',
+        requestedBy: 'درخواست‌کننده',
+        requestedAt: 'زمان درخواست',
+        reviewAt: 'زمان بررسی',
+        status: 'وضعیت',
+        votes: 'رأی‌ها',
+        approveCount: 'تأیید',
+        rejectCount: 'رد',
+        vote: 'رأی',
+        version: 'نسخه',
+        activeVersion: 'نسخه فعال',
+        created: 'تاریخ ایجاد',
+        details: 'جزئیات',
+        changeRequestDetails: 'جزئیات درخواست تغییر',
+        partType: 'نوع قطعه',
     },
     en: {
         name: 'English',
@@ -203,12 +248,16 @@ const LANG = {
         stageName: 'Stage Name',
         stageDetails: 'Production Details',
         addDetail: 'Add Detail',
-        manufacturers: 'Part Manufacturers',
+        manufacturers: 'Manufacturers',
         addManufacturer: 'Add Manufacturer',
         noManufacturer: 'No manufacturer registered',
         createManufacturer: 'Create New Manufacturer',
+        editManufacturer: 'Edit Manufacturer',
+        deleteManufacturer: 'Delete Manufacturer',
         selectManufacturer: 'Select Manufacturer',
-        allAdded: 'All manufacturers already added',
+        none: 'None',
+        manageManufacturers: 'Manage Manufacturers',
+        manufacturer: 'Manufacturer',
         confirmDelete: 'Are you sure you want to delete?',
         saveSuccess: 'Saved successfully',
         saveError: 'Save error',
@@ -300,6 +349,48 @@ const LANG = {
         mfrAddress: 'Address',
         mfrNotes: 'Notes',
         mfrSocial: 'Social',
+        // PLM
+        versions: 'Versions',
+        changeRequests: 'Change Requests',
+        noVersions: 'No versions recorded',
+        noChangeRequests: 'No change requests',
+        createVersion: 'Create New Version',
+        versionNumber: 'Version Number',
+        changeSummary: 'Change Summary',
+        versionCreated: 'Version created successfully',
+        activateVersion: 'Activate',
+        versionActivated: 'Version activated',
+        changeRequest: 'Change Request',
+        createChangeRequest: 'Create Change Request',
+        description: 'Description',
+        justification: 'Justification',
+        submitChangeRequest: 'Submit Request',
+        changeRequestSubmitted: 'Change request submitted',
+        pending: 'Pending Review',
+        approved: 'Approved',
+        rejected: 'Rejected',
+        voteApprove: 'Approve',
+        voteReject: 'Reject',
+        voteSubmitted: 'Your vote has been recorded',
+        alreadyVoted: 'You have already voted on this request',
+        reviewChangeRequest: 'Review Request',
+        approve: 'Approve',
+        reject: 'Reject',
+        reviewed: 'Reviewed',
+        requestedBy: 'Requested By',
+        requestedAt: 'Requested At',
+        reviewAt: 'Reviewed At',
+        status: 'Status',
+        votes: 'Votes',
+        approveCount: 'Approve',
+        rejectCount: 'Reject',
+        vote: 'Vote',
+        version: 'Version',
+        activeVersion: 'Active Version',
+        created: 'Created',
+        details: 'Details',
+        changeRequestDetails: 'Change Request Details',
+        partType: 'Part Type',
     }
 };
 
@@ -334,6 +425,7 @@ function applyLang() {
     $('#tab-btn-mfg').text('⚙️ ' + t('manufacturing'));
     $('#tab-btn-schedule').text('📅 ' + t('schedule'));
     $('#tab-btn-docs').text('📁 ' + t('techDocs'));
+    $('#tab-btn-plm-changes').text('🔄 ' + t('changeRequests'));
     $('#field-name-label').text(t('name'));
     $('#field-partCode-label').text(t('partCode'));
     $('#field-specs-label').text(t('specs'));
@@ -370,6 +462,8 @@ function applyLang() {
     $('#stat-total-label').text(t('product'));
     $('#stat-done-label').text(t('completedCount'));
     $('#stat-missing-label').text(t('shortage'));
+    $('#plm-changes-label').text(t('changeRequests') + ':');
+    $('#plm-new-cr-title').text(t('submitChangeRequest'));
     // modal buttons
     $('.btn-ok').text(t('ok'));
     $('.btn-yes').text(t('yes'));
@@ -968,17 +1062,18 @@ function showEditForm(node) {
         updateProgressBar();
         $('#tab-btn-docs').show();
         loadDocuments(currentNodeId);
-        loadPartManufacturers(currentNodeId);
         loadAllManufacturers();
     } else if (node.type === 'product') {
         $('#tab-btn-mfg').hide();
         $('#tab-btn-schedule').show();
         $('#tab-btn-docs').hide();
+        $('#tab-btn-plm-changes').hide();
         loadSchedulesForProduct(currentNodeId);
     } else {
         $('#tab-btn-mfg').hide();
         $('#tab-btn-schedule').hide();
         $('#tab-btn-docs').hide();
+        $('#tab-btn-plm-changes').hide();
         $('#progress-container').hide();
         if ($('.tab-btn.active').attr('onclick') === "switchTab('tab-mfg')" || $('.tab-btn.active').attr('onclick') === "switchTab('tab-schedule')") {
             switchTab('tab-general');
@@ -1135,12 +1230,13 @@ function renderStages() {
                             </div>
                         </div>
                         <div style="background:var(--bg-tertiary);padding:8px;border-radius:6px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                                <strong style="font-size:12px;">🏭 ${t('manufacturers')}</strong>
-                                <button onclick="showAddManufacturerToPart()" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ ${t('addManufacturer')}</button>
-                            </div>
-                            <div id="part-manufacturers-list" class="manufacturers-list">
-                                ${renderPartManufacturersList()}
+                            <strong style="font-size:12px;">🏭 ${t('manufacturer')}</strong>
+                            <div style="display:flex;gap:8px;margin-top:6px;align-items:center;">
+                                <select onchange="setStageManufacturer(${idx}, this.value)" style="flex:1;min-width:0;padding:4px 6px;font-size:12px;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-secondary);color:var(--text-primary);">
+                                    <option value="">— ${t('none')} —</option>
+                                    ${allManufacturers.map(m => `<option value="${m.id}" ${Number(stage.manufacturer_id) === Number(m.id) ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('')}
+                                </select>
+                                <button onclick="showManufacturersManager()" class="btn-small" style="padding:2px 8px;font-size:11px;white-space:nowrap;">⚙ ${t('manageManufacturers')}</button>
                             </div>
                         </div>
                     </div>
@@ -1191,7 +1287,6 @@ function renderStages() {
 
         if (isExpanded) {
             loadStageDetails(idx, stage);
-            refreshManufacturersList();
         }
     });
     updateProgressBar();
@@ -1329,116 +1424,108 @@ function removeStageDetail(idx, di) {
         renderStageDetails(idx);
     });
 }
-
 // ───── Manufacturers ─────
-
-function loadPartManufacturers(partId) {
-    const pid = parseInt(partId.toString().replace(/^[a-z]/, ''));
-    if (isNaN(pid)) return;
-    fetch(`/api/v2/parts/${pid}/manufacturers`)
-        .then(res => res.json())
-        .then(res => {
-            if (res.success) {
-                partManufacturers = res.data;
-                refreshManufacturersList();
-            }
-        }).catch(e => console.error('loadPartManufacturers error:', e));
-}
 
 function loadAllManufacturers() {
     fetch('/api/v2/manufacturers')
         .then(res => res.json())
         .then(res => {
-            if (res.success) allManufacturers = res.data;
+            if (res.success) {
+                allManufacturers = res.data;
+                if (typeof tempStages !== 'undefined' && tempStages.length) renderStages();
+            }
         });
 }
 
-function renderPartManufacturersList() {
-    if (!partManufacturers || partManufacturers.length === 0) {
-        return '<div style="font-size:11px;color:var(--text-muted);padding:4px;">' + t('noManufacturer') + '</div>';
+function setStageManufacturer(idx, val) {
+    if (!tempStages[idx]) return;
+    tempStages[idx].manufacturer_id = val ? Number(val) : null;
+    autoSaveNode();
+}
+
+function showManufacturersManager() {
+    renderManufacturersManagerList();
+    $('#mfr-manager-modal').fadeIn(150);
+}
+
+function closeMfrManagerModal() {
+    $('#mfr-manager-modal').fadeOut(150);
+}
+
+function renderManufacturersManagerList() {
+    const container = $('#mfr-manager-list');
+    if (!container.length) return;
+    container.empty();
+    if (!allManufacturers || allManufacturers.length === 0) {
+        container.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">' + t('noManufacturer') + '</div>');
+        return;
     }
-    let html = '';
-    partManufacturers.forEach((m, mi) => {
-        html += `
-            <div class="manufacturer-item" style="margin-bottom:4px;border:1px solid var(--border-color);border-radius:4px;overflow:hidden;">
-                <div class="mfr-header" onclick="toggleMfrExpand(${mi})" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;cursor:pointer;background:var(--bg-secondary);font-size:12px;font-weight:bold;">
-                    <span>${mfrExpandState[mi] ? '▼' : '▶'} ${escapeHtml(m.name)}</span>
-                    <button onclick="event.stopPropagation();removeManufacturerFromPart(${mi})" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">✕</button>
+    allManufacturers.forEach(m => {
+        const info = [];
+        if (m.emails && m.emails.length) info.push('\u2709\ufe0f ' + m.emails[0].email);
+        if (m.phones && m.phones.length) info.push('\u260e\ufe0f ' + m.phones[0].phone);
+        container.append(`
+            <div class="manufacturer-item" style="margin-bottom:6px;border:1px solid var(--border-color);border-radius:6px;padding:8px;display:flex;justify-content:space-between;align-items:center;">
+                <div style="min-width:0;">
+                    <div style="font-size:13px;font-weight:bold;">${escapeHtml(m.name)}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${info.join(' | ') || t('mfrInfo')}</div>
                 </div>
-                <div class="mfr-body" style="${mfrExpandState[mi] ? 'display:block;' : 'display:none;'}padding:8px;font-size:11px;">
-                    ${renderManufacturerInfo(m)}
+                <div style="display:flex;gap:6px;white-space:nowrap;">
+                    <button onclick="editManufacturer(${m.id})" class="btn-small" style="background:#2196F3;">\u270f\ufe0f ${t('edit')}</button>
+                    <button onclick="deleteManufacturer(${m.id})" class="btn-small" style="background:#f44336;">\ud83d\uddd1 ${t('delete')}</button>
                 </div>
             </div>
-        `;
+        `);
     });
-    return html;
 }
 
-let mfrExpandState = {};
-
-function refreshManufacturersList() {
-    const container = $('#part-manufacturers-list');
-    if (container.length) {
-        container.html(renderPartManufacturersList());
-    }
+function editManufacturer(id) {
+    const m = allManufacturers.find(x => x.id === id);
+    if (!m) return;
+    window._editingMfrId = id;
+    $('#mfr-form-title').text(t('editManufacturer'));
+    $('#mfr-name').val(m.name || '');
+    $('#mfr-phone').val((m.phones && m.phones[0]) ? m.phones[0].phone : '');
+    $('#mfr-address').val(m.address || '');
+    $('#mfr-notes').val(m.notes || '');
+    const emails = (m.emails || []);
+    $('#mfr-emails-container').html(emails.length ? emails.map(e => `
+        <div class="modal-multi-row">
+            <input type="email" class="mfr-email-input" value="${escapeHtml(e.email)}">
+            <button onclick="this.parentElement.remove()" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">\u2715</button>
+        </div>`).join('') : `
+        <div class="modal-multi-row">
+            <input type="email" class="mfr-email-input" placeholder="example@company.com">
+        </div>`);
+    const socials = (m.socials || []);
+    $('#mfr-socials-container').html(socials.length ? socials.map(s => `
+        <div class="modal-multi-row">
+            <input type="text" class="mfr-social-platform" value="${escapeHtml(s.platform)}" placeholder="\u067e\u0644\u062a\u0641\u0631\u0645" style="width:40%;">
+            <input type="text" class="mfr-social-handle" value="${escapeHtml(s.handle)}" placeholder="\u0622\u06cc\u062f\u06cc" style="width:55%;">
+        </div>`).join('') : `
+        <div class="modal-multi-row">
+            <input type="text" class="mfr-social-platform" placeholder="\u067e\u0644\u062a\u0641\u0631\u0645 (Telegram, Instagram, ...)" style="width:40%;">
+            <input type="text" class="mfr-social-handle" placeholder="\u0622\u06cc\u062f\u06cc (@username)" style="width:55%;">
+        </div>`);
+    $('#mfr-form-modal').fadeIn(150);
 }
 
-function toggleMfrExpand(mi) {
-    mfrExpandState[mi] = !mfrExpandState[mi];
-    refreshManufacturersList();
-}
-
-function renderManufacturerInfo(m) {
-    let html = '';
-    if (m.emails && m.emails.length) {
-        m.emails.forEach(e => {
-            html += `<div style="margin-bottom:2px;">📧 ${t('mfrEmail')}: ${escapeHtml(e.email)}</div>`;
-        });
-    }
-    if (m.phones && m.phones.length) {
-        m.phones.forEach(p => {
-            html += `<div style="margin-bottom:2px;">📞 ${t('mfrPhone')}: ${escapeHtml(p.phone)}</div>`;
-        });
-    }
-    if (m.socials && m.socials.length) {
-        m.socials.forEach(s => {
-            html += `<div style="margin-bottom:2px;">🌐 ${escapeHtml(s.platform)}: ${escapeHtml(s.handle)}</div>`;
-        });
-    }
-    if (m.address) {
-        html += `<div style="margin-bottom:2px;">📍 ${t('mfrAddress')}: ${escapeHtml(m.address)}</div>`;
-    }
-    if (m.notes) {
-        html += `<div style="margin-bottom:2px;">📝 ${t('mfrNotes')}: ${escapeHtml(m.notes)}</div>`;
-    }
-    if (!html) html = '<div style="color:var(--text-muted);">' + t('mfrInfo') + '</div>';
-    return html;
-}
-
-function showAddManufacturerToPart() {
-    const unused = allManufacturers.filter(m => !partManufacturers.some(pm => pm.id === m.id));
-    const listContainer = $('#mfr-select-list');
-    listContainer.empty();
-    if (unused.length === 0) {
-        listContainer.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">' + t('allAdded') + '</div>');
-    } else {
-        unused.forEach((m, i) => {
-            const info = [];
-            if (m.emails && m.emails.length) info.push(m.emails[0].email);
-            if (m.phones && m.phones.length) info.push(m.phones[0].phone);
-            listContainer.append(`
-                <div class="select-item" onclick="addManufacturerToPart(${m.id});closeMfrSelectModal();">
-                    <div class="select-item-name">${escapeHtml(m.name)}</div>
-                    <div class="select-item-info">${info.join(' | ')}</div>
-                </div>
-            `);
-        });
-    }
-    $('#mfr-select-modal').fadeIn(150);
-}
-
-function closeMfrSelectModal() {
-    $('#mfr-select-modal').fadeOut(150);
+function deleteManufacturer(id) {
+    const m = allManufacturers.find(x => x.id === id);
+    showConfirmModal(t('delete') + ' "' + (m ? m.name : '') + '"?', function(result) {
+        if (!result) return;
+        fetch(`/api/v2/manufacturers/${id}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(r => {
+                if (r.success) {
+                    loadAllManufacturers();
+                    renderManufacturersManagerList();
+                } else {
+                    showToast('\u062e\u0637\u0627: ' + (r.error || '\u0646\u0627\u0645\u0634\u062e\u0635'), true);
+                }
+            })
+            .catch(e => showToast('\u062e\u0637\u0627 \u062f\u0631 \u0627\u0631\u062a\u0628\u0627\u0637 \u0628\u0627 \u0633\u0631\u0648\u0631: ' + e.message, true));
+    });
 }
 
 function showCreateManufacturerForm() {
@@ -1454,8 +1541,8 @@ function showCreateManufacturerForm() {
     `);
     $('#mfr-socials-container').html(`
         <div class="modal-multi-row">
-            <input type="text" class="mfr-social-platform" placeholder="پلتفرم (Telegram, Instagram, ...)" style="width:40%;">
-            <input type="text" class="mfr-social-handle" placeholder="آیدی (@username)" style="width:55%;">
+            <input type="text" class="mfr-social-platform" placeholder="\u067e\u0644\u062a\u0641\u0631\u0645 (Telegram, Instagram, ...)" style="width:40%;">
+            <input type="text" class="mfr-social-handle" placeholder="\u0622\u06cc\u062f\u06cc (@username)" style="width:55%;">
         </div>
     `);
     window._editingMfrId = null;
@@ -1470,7 +1557,7 @@ function addMfrEmailRow() {
     $('#mfr-emails-container').append(`
         <div class="modal-multi-row">
             <input type="email" class="mfr-email-input" placeholder="example@company.com">
-            <button onclick="this.parentElement.remove()" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">✕</button>
+            <button onclick="this.parentElement.remove()" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">\u2715</button>
         </div>
     `);
 }
@@ -1478,21 +1565,21 @@ function addMfrEmailRow() {
 function addMfrSocialRow() {
     $('#mfr-socials-container').append(`
         <div class="modal-multi-row">
-            <input type="text" class="mfr-social-platform" placeholder="پلتفرم (Telegram, Instagram...)" style="width:40%;">
-            <input type="text" class="mfr-social-handle" placeholder="آیدی (@username)" style="width:55%;">
-            <button onclick="this.parentElement.remove()" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">✕</button>
+            <input type="text" class="mfr-social-platform" placeholder="\u067e\u0644\u062a\u0641\u0631\u0645 (Telegram, Instagram...)" style="width:40%;">
+            <input type="text" class="mfr-social-handle" placeholder="\u0622\u06cc\u062f\u06cc (@username)" style="width:55%;">
+            <button onclick="this.parentElement.remove()" class="btn-small" style="padding:1px 6px;font-size:10px;background:#f44336;">\u2715</button>
         </div>
     `);
 }
 
 function submitMfrForm() {
     const name = $('#mfr-name').val().trim();
-    if (!name) { showAlertModal(t('nameRequired')); return; }
+    if (!name) { showToast(t('nameRequired'), true); return; }
     const phone = $('#mfr-phone').val().trim();
     const address = $('#mfr-address').val().trim();
     const notes = $('#mfr-notes').val().trim();
     const emails = [];
-    $('.mfr-email-input').each(function() {
+    $('#mfr-emails-container .mfr-email-input').each(function() {
         const v = $(this).val().trim();
         if (v) emails.push({ email: v });
     });
@@ -1512,11 +1599,11 @@ function submitMfrForm() {
             if (r.success) {
                 closeMfrFormModal();
                 loadAllManufacturers();
-                loadPartManufacturers(currentNodeId);
+                renderManufacturersManagerList();
             } else {
-                showAlertModal('خطا: ' + (r.error || 'نامشخص'));
+                showToast('\u062e\u0637\u0627: ' + (r.error || '\u0646\u0627\u0645\u0634\u062e\u0635'), true);
             }
-        }).catch(e => showAlertModal('خطا: ' + e.message));
+        }).catch(e => showToast('\u062e\u0637\u0627: ' + e.message, true));
     } else {
         fetch('/api/v2/manufacturers', {
             method: 'POST',
@@ -1526,52 +1613,39 @@ function submitMfrForm() {
             if (r.success) {
                 allManufacturers.push(r.data);
                 closeMfrFormModal();
-                addManufacturerToPart(r.data.id);
+                renderManufacturersManagerList();
             } else {
-                showAlertModal('خطا در ایجاد سازنده: ' + (r.error || 'نامشخص'));
+                showToast('\u062e\u0637\u0627 \u062f\u0631 \u0627\u06cc\u062c\u0627\u062f \u0633\u0627\u0632\u0646\u062f\u0647: ' + (r.error || '\u0646\u0627\u0645\u0634\u062e\u0635'), true);
             }
-        }).catch(e => showAlertModal('خطا در ارتباط با سرور: ' + e.message));
+        }).catch(e => showToast('\u062e\u0637\u0627 \u062f\u0631 \u0627\u0631\u062a\u0628\u0627\u0637 \u0628\u0627 \u0633\u0631\u0648\u0631: ' + e.message, true));
     }
 }
 
-function addManufacturerToPart(mfrId) {
-    const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
-    if (isNaN(pid)) { showAlertModal('خطا: قطعه شناسه معتبری ندارد'); return; }
-    fetch(`/api/v2/parts/${pid}/manufacturers`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ manufacturer_id: mfrId })
-    }).then(res => res.json()).then(r => {
-        if (r.success) {
-            partManufacturers.push(r.data);
-            refreshManufacturersList();
-        } else {
-            showAlertModal('خطا: ' + (r.error || 'نامشخص'));
-        }
-    }).catch(e => {
-        showAlertModal('خطا در ارتباط با سرور: ' + e.message);
-    });
-}
-
-function removeManufacturerFromPart(mi) {
-    showConfirmModal(t('delete') + ' "' + partManufacturers[mi].name + '"?', function(result) {
-        if (!result) return;
-        const mfr = partManufacturers[mi];
-        const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
-        if (isNaN(pid)) return;
-        fetch(`/api/v2/parts/${pid}/manufacturers/${mfr.id}`, { method: 'DELETE' })
-            .then(res => res.json()).then(r => {
-                if (r.success) {
-                    partManufacturers.splice(mi, 1);
-                    mfrExpandState[mi] = false;
-                    refreshManufacturersList();
-                } else {
-                    showAlertModal('خطا: ' + (r.error || 'نامشخص'));
-                }
-            }).catch(e => {
-                showAlertModal('خطا در ارتباط با سرور: ' + e.message);
-            });
-    });
+function renderManufacturerInfo(m) {
+    let html = '';
+    if (m.emails && m.emails.length) {
+        m.emails.forEach(e => {
+            html += `<div style="margin-bottom:2px;">\u2709\ufe0f ${t('mfrEmail')}: ${escapeHtml(e.email)}</div>`;
+        });
+    }
+    if (m.phones && m.phones.length) {
+        m.phones.forEach(p => {
+            html += `<div style="margin-bottom:2px;">\u260e\ufe0f ${t('mfrPhone')}: ${escapeHtml(p.phone)}</div>`;
+        });
+    }
+    if (m.socials && m.socials.length) {
+        m.socials.forEach(s => {
+            html += `<div style="margin-bottom:2px;">\ud83c\udf10 ${escapeHtml(s.platform)}: ${escapeHtml(s.handle)}</div>`;
+        });
+    }
+    if (m.address) {
+        html += `<div style="margin-bottom:2px;">\ud83d\udccd ${t('mfrAddress')}: ${escapeHtml(m.address)}</div>`;
+    }
+    if (m.notes) {
+        html += `<div style="margin-bottom:2px;">\ud83d\udcdd ${t('mfrNotes')}: ${escapeHtml(m.notes)}</div>`;
+    }
+    if (!html) html = '<div style="color:var(--text-muted);">' + t('mfrInfo') + '</div>';
+    return html;
 }
 
 function escapeHtml(text) {
@@ -1808,6 +1882,138 @@ function deleteDocument(docId) {
     });
 }
 
+// ───── PLM: Change Requests ─────
+
+function loadChangeRequests(nodeId) {
+    const partId = nodeId.replace('r', '');
+    fetch(`/api/v2/parts/${partId}/change-requests`)
+        .then(res => res.json())
+        .then(res => {
+            const container = $('#plm-changes-list');
+            container.empty();
+            if (!res.success || !res.data || res.data.length === 0) {
+                container.html('<div style="color:var(--text-muted);padding:10px;font-size:13px;">' + t('noChangeRequests') + '</div>');
+                return;
+            }
+            res.data.forEach(cr => {
+                const statusMap = { pending: t('pending'), approved: t('approved'), rejected: t('rejected') };
+                const statusColors = { pending: '#FF9800', approved: '#4CAF50', rejected: '#f44336' };
+                const statusColor = statusColors[cr.status] || '#9E9E9E';
+                const canVote = cr.status === 'pending' && currentUser && !cr.votes.some(v => v.user_id === currentUser.id);
+                container.append(`
+                    <div style="display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--bg-tertiary);border-radius:6px;margin-bottom:8px;border:1px solid var(--border-color);border-right:4px solid ${statusColor};">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div style="flex:1;">
+                                <div style="display:flex;align-items:center;gap:8px;font-weight:bold;font-size:13px;">
+                                    <span>#${cr.id}</span>
+                                    <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${statusColor};color:#fff;">${statusMap[cr.status] || cr.status}</span>
+                                </div>
+                                <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">${cr.description}</div>
+                                ${cr.justification ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${t('justification')}: ${cr.justification}</div>` : ''}
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                                    ${t('requestedBy')}: ${cr.requester_name} | ${t('created')}: ${new Date(cr.created_at).toLocaleString('fa-IR')}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            ${cr.status === 'pending' && canVote ? `
+                                <button onclick="voteChangeRequest(${cr.id}, 'approve')" class="btn-small" style="background:#4CAF50;">✅ ${t('approve')}</button>
+                                <button onclick="voteChangeRequest(${cr.id}, 'reject')" class="btn-small" style="background:#f44336;">❌ ${t('reject')}</button>
+                            ` : cr.status !== 'pending' ? `
+                                <span style="font-size:11px;padding:4px 10px;border-radius:4px;background:${statusColor};color:#fff;">${statusMap[cr.status]}</span>
+                            ` : ''}
+                            <button onclick="showChangeRequestDetails(${cr.id})" class="btn-small" style="background:#2196F3;">${t('details')}</button>
+                        </div>
+                        ${cr.votes && cr.votes.length > 0 ? `
+                            <div style="font-size:11px;color:var(--text-muted);border-top:1px solid var(--border-color);padding-top:8px;margin-top:4px;">
+                                ${t('votes')}: ${cr.votes.filter(v => v.vote_type === 'approve').length} ✅ | ${cr.votes.filter(v => v.vote_type === 'reject').length} ❌
+                            </div>
+                        ` : ''}
+                    </div>
+                `);
+            });
+        });
+}
+
+function createChangeRequest() {
+    const partId = currentNodeId.replace('r', '');
+    const description = ($('#plm-cr-description').val() || '').trim();
+    if (!description) { showToast(t('error') + ': ' + t('description'), true); return; }
+    const justification = ($('#plm-cr-justification').val() || '').trim();
+    fetch(`/api/v2/parts/${partId}/change-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: description, justification: justification })
+    })
+    .then(res => res.json())
+    .then(r => {
+        if (r.success) {
+            $('#plm-cr-description').val('');
+            $('#plm-cr-justification').val('');
+            loadChangeRequests(currentNodeId);
+            showToast(t('changeRequestSubmitted'));
+        } else {
+            showToast(r.error || t('error'), true);
+        }
+    })
+    .catch(e => showToast(t('error') + ': ' + e.message, true));
+}
+
+function voteChangeRequest(crId, voteType) {
+    showConfirmModal(t('confirm') + ' ' + voteType + '?', function(result) {
+        if (!result) return;
+        fetch(`/api/v2/change-requests/${crId}/vote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vote_type: voteType })
+        })
+        .then(res => res.json())
+        .then(r => {
+            if (r.success) {
+                loadChangeRequests(currentNodeId);
+                showToast(t('voteSubmitted'));
+            } else {
+                showToast(r.error || t('error'), true);
+            }
+        })
+        .catch(e => showToast(t('error') + ': ' + e.message, true));
+    });
+}
+
+function showChangeRequestDetails(crId) {
+    fetch(`/api/v2/change-requests/${crId}`)
+        .then(res => res.json())
+        .then(r => {
+            if (!r.success) return;
+            const cr = r.data;
+            const statusMap = { pending: t('pending'), approved: t('approved'), rejected: t('rejected') };
+            const statusColors = { pending: '#FF9800', approved: '#4CAF50', rejected: '#f44336' };
+            const statusColor = statusColors[cr.status] || '#9E9E9E';
+            showAlertModal(`
+                <div style="font-size:13px;line-height:1.7;">
+                    <strong>#${cr.id} - ${statusMap[cr.status] || cr.status}</strong>
+                    <div style="margin:8px 0;padding:8px;background:var(--bg-tertiary);border-radius:4px;">
+                        <strong>${t('description')}:</strong> ${cr.description}
+                    </div>
+                    ${cr.justification ? `<div style="margin:8px 0;padding:8px;background:var(--bg-tertiary);border-radius:4px;"><strong>${t('justification')}:</strong> ${cr.justification}</div>` : ''}
+                    <div style="font-size:12px;color:var(--text-muted);">
+                        ${t('requestedBy')}: ${cr.requester_name}<br>
+                        ${t('created')}: ${new Date(cr.created_at).toLocaleString('fa-IR')}<br>
+                        ${cr.reviewed_at ? `${t('reviewed')}: ${new Date(cr.reviewed_at).toLocaleString('fa-IR')}` : ''}
+                    </div>
+                    ${cr.votes && cr.votes.length > 0 ? `
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-color);">
+                            <strong>${t('votes')}:</strong>
+                            <div style="font-size:12px;margin-top:4px;">
+                                ${cr.votes.map(v => `<span style="margin-left:10px;">${v.voter_name}: ${v.vote_type === 'approve' ? '✅' : '❌'}</span>`).join('<br>')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `, { title: t('changeRequestDetails') });
+        });
+}
+
 // ───── Production Scheduling ─────
 
 function loadSchedulesForProduct(nodeId) {
@@ -1910,7 +2116,7 @@ function closeConfirmModal() {
 
 // ───── Generic Alert Modal ─────
 function showAlertModal(message) {
-    $('#alert-modal-message').text(message);
+    $('#alert-modal-message').html(message);
     $('#alert-modal').fadeIn(150);
 }
 

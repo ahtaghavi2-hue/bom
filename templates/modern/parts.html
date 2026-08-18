@@ -48,6 +48,39 @@
         </table>
     </div>
 </div>
+
+<!-- مودال درخواست تغییر (غیرفعال - منتظر پلن دقیق‌تر)
+<div class="modal-overlay" id="change-request-modal" style="display:none;">
+    <div class="modal-card" style="width:560px;max-height:90vh;display:flex;flex-direction:column;">
+        <div class="modal-header">
+            <h3 id="cr-modal-title">📝 درخواست تغییر</h3>
+            <button class="modal-close" onclick="closeModal('change-request-modal')">✕</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;">
+            <div id="cr-part-info" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;"></div>
+            <div class="form-group">
+                <label>توضیحات تغییر <span style="color:var(--danger)">*</span></label>
+                <textarea id="cr-description" rows="3" placeholder="چه تغییری درخواست دارید؟"></textarea>
+            </div>
+            <div class="form-group">
+                <label>توجیه / دلیل</label>
+                <textarea id="cr-justification" rows="2" placeholder="چرا این تغییر لازم است؟"></textarea>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="submitChangeRequest()">ثبت درخواست</button>
+            <hr style="border:none;border-top:1px solid var(--border);margin:20px 0;">
+            <div style="font-weight:600;font-size:14px;margin-bottom:10px;">🔄 درخواست‌های ثبت‌شده</div>
+            <div id="cr-list" style="font-size:13px;"></div>
+        </div>
+    </div>
+</div>
+-->
+
+<!-- پیام موفقیت/خطا -->
+<div class="modal-overlay" id="toast-modal" style="display:none;">
+    <div class="modal-card" style="width:380px;">
+        <div class="modal-body" id="toast-content" style="text-align:center;"></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -107,7 +140,6 @@ function renderParts(parts) {
             + '<td>' + (p.supplier || '-') + '</td>'
             + '<td>-</td>'
             + '<td>-</td>'
-            + '<td><button class="btn btn-xs btn-outline" onclick="showPartDetail(' + JSON.stringify(p).replace(/"/g, "'") + ')">&#128065;</button></td>'
             + '</tr>');
     });
     $('#total-parts').text(total);
@@ -122,6 +154,117 @@ function filterParts() {
 }
 
 function showPartDetail(p) { alert('نام: ' + p.name + '\nکد: ' + (p.part_code || '-') + '\nموجودی: ' + (p.quantity || 0) + '\nنیاز: ' + (p.required_quantity || 1) + '\nتأمین‌کننده: ' + (p.supplier || '-')); }
+
+/* ─── درخواست تغییر و ورژن‌بندی (غیرفعال - منتظر پلن دقیق‌تر)
+var currentCrPartId = null;
+
+function openChangeRequestModal(partId, partName) {
+    currentCrPartId = partId;
+    $('#cr-part-info').text('قطعه: ' + partName);
+    $('#cr-description').val('');
+    $('#cr-justification').val('');
+    $('#change-request-modal').show();
+    loadChangeRequests(partId);
+}
+
+function loadChangeRequests(partId) {
+    $('#cr-list').html('<div style="color:var(--text-muted);padding:8px;">در حال بارگذاری...</div>');
+    $.getJSON('/api/v2/parts/' + partId + '/change-requests', function(res) {
+        var list = $('#cr-list');
+        list.empty();
+        if (!res.success || !res.data || res.data.length === 0) {
+            list.html('<div style="color:var(--text-muted);padding:8px;">هیچ درخواستی ثبت نشده است</div>');
+            return;
+        }
+        res.data.forEach(function(cr) {
+            var statusMap = { pending: 'در انتظار', approved: 'تأیید شده', rejected: 'رد شده' };
+            var statusClass = { pending: 'badge-pending', approved: 'badge-completed', rejected: 'badge-danger' };
+            var approveCount = 0, rejectCount = 0;
+            (cr.votes || []).forEach(function(v) { if (v.vote_type === 'approve') approveCount++; else rejectCount++; });
+            var html = '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<strong>#' + cr.id + '</strong>'
+                + '<span class="badge ' + (statusClass[cr.status] || 'badge-inactive') + '">' + (statusMap[cr.status] || cr.status) + '</span>'
+                + '</div>'
+                + '<div style="margin-top:6px;">' + cr.description + '</div>';
+            if (cr.justification) html += '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">توجیه: ' + cr.justification + '</div>';
+            html += '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">درخواست‌دهنده: ' + (cr.requester_name || '-') + ' | ' + new Date(cr.created_at).toLocaleString('fa-IR') + '</div>';
+            html += '<div style="display:flex;gap:6px;margin-top:8px;">'
+                + '<span class="badge badge-completed">✅ ' + approveCount + '</span>'
+                + '<span class="badge badge-danger">❌ ' + rejectCount + '</span>';
+            if (cr.status === 'pending') {
+                html += '<span style="flex:1"></span>'
+                    + '<button class="btn btn-xs" style="background:var(--success);color:#fff;" onclick="voteChangeRequest(' + cr.id + ', \'approve\')">✅ موافق</button>'
+                    + '<button class="btn btn-xs" style="background:var(--danger);color:#fff;" onclick="voteChangeRequest(' + cr.id + ', \'reject\')">❌ مخالف</button>';
+            }
+            html += '</div></div>';
+            list.append(html);
+        });
+    }).fail(function(xhr) {
+        var msg = 'خطا در دریافت درخواست‌ها';
+        try { msg = xhr.responseJSON.error || msg; } catch (e) {}
+        $('#cr-list').html('<div style="color:var(--danger);padding:8px;">' + msg + '</div>');
+    });
+}
+
+function submitChangeRequest() {
+    var description = $('#cr-description').val().trim();
+    if (!description) { showToast('لطفاً توضیحات تغییر را وارد کنید', 'danger'); return; }
+    var justification = $('#cr-justification').val().trim();
+    $.ajax({
+        url: '/api/v2/parts/' + currentCrPartId + '/change-requests',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ description: description, justification: justification }),
+        success: function(res) {
+            $('#cr-description').val('');
+            $('#cr-justification').val('');
+            loadChangeRequests(currentCrPartId);
+            showToast('درخواست تغییر با موفقیت ثبت شد', 'success');
+        },
+        error: function(xhr) {
+            var msg = 'خطا در ثبت درخواست';
+            try { msg = xhr.responseJSON.error || msg; } catch (e) {}
+            showToast(msg, 'danger');
+        }
+    });
+}
+
+function voteChangeRequest(reqId, voteType) {
+    $.ajax({
+        url: '/api/v2/change-requests/' + reqId + '/vote',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ vote_type: voteType }),
+        success: function(res) {
+            loadChangeRequests(currentCrPartId);
+            var msg = 'رأی شما ثبت شد';
+            if (res.data && res.data.status === 'approved') msg = 'درخواست تأیید شد';
+            showToast(msg, 'success');
+        },
+        error: function(xhr) {
+            var msg = 'خطا در ثبت رأی';
+            try { msg = xhr.responseJSON.error || msg; } catch (e) {}
+            showToast(msg, 'danger');
+        }
+    });
+}
+──*/
+
+function closeModal(modalId) {
+    $('#' + modalId).hide();
+}
+
+function showToast(message, type) {
+    var color = type === 'success' ? 'var(--success)' : 'var(--danger)';
+    $('#toast-content').html(
+        '<div style="padding:16px 8px;">'
+        + '<div style="font-size:40px;margin-bottom:8px;">' + (type === 'success' ? '✅' : '❌') + '</div>'
+        + '<div style="font-size:14px;font-weight:600;color:' + color + ';">' + message + '</div>'
+        + '<button class="btn btn-primary" style="margin-top:16px;" onclick="closeModal(\'toast-modal\')">باشه</button>'
+        + '</div>');
+    $('#toast-modal').show();
+}
 
 $(document).ready(loadAllParts);
 </script>

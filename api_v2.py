@@ -3,6 +3,8 @@ from flask_login import login_required, current_user
 from extensions import db
 from models import Product, Assembly, Part, Stage, Image, ProductionSchedule, WorkOrder, NotificationLog
 from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
+from models import PartVersion, ChangeRequest, ChangeRequestStatus, ChangeVote, VoteType
+from models import CostHistory, PartSimilarity, Artisan, VendorType, VendorRating
 from datetime import datetime
 import os
 import uuid
@@ -169,6 +171,7 @@ def create_stage():
         part_id=data['part_id'],
         name=data['name'],
         sort_order=data.get('sort_order', 0),
+        manufacturer_id=data.get('manufacturer_id') or None,
         estimated_material_cost=data.get('estimated_material_cost', 0),
         estimated_labor_cost=data.get('estimated_labor_cost', 0),
         estimated_overhead=data.get('estimated_overhead', 0),
@@ -183,7 +186,7 @@ def create_stage():
 def update_stage(stage_id):
     stage = Stage.query.get_or_404(stage_id)
     data = request.get_json()
-    for key in ('name', 'status', 'sort_order',
+    for key in ('name', 'status', 'sort_order', 'manufacturer_id',
                 'estimated_material_cost', 'actual_material_cost',
                 'estimated_labor_cost', 'actual_labor_cost',
                 'estimated_overhead', 'actual_overhead',
@@ -482,8 +485,10 @@ def _add_to_dict_methods():
          ['id', 'assembly_id', 'name', 'part_code', 'specs', 'part_type', 'quantity',
           'required_quantity', 'supplier', 'supplier_email', 'notes', 'status', 'sort_order']),
         (Stage,
-         ['id', 'part_id', 'name', 'status', 'sort_order', 'estimated_total', 'actual_total'],
+         ['id', 'part_id', 'name', 'status', 'sort_order', 'manufacturer_id', 'manufacturer_name',
+          'estimated_total', 'actual_total'],
          ['id', 'part_id', 'name', 'status', 'sort_order',
+          'manufacturer_id', 'manufacturer_name',
           'estimated_material_cost', 'actual_material_cost',
           'estimated_labor_cost', 'actual_labor_cost',
           'estimated_overhead', 'actual_overhead',
@@ -498,10 +503,10 @@ def _add_to_dict_methods():
          ['id', 'schedule_id', 'part_id', 'quantity', 'status',
           'assigned_to', 'due_date', 'started_at', 'completed_at', 'notes', 'created_at']),
     ]:
-        def make_to_dict(fs):
+        def make_to_dict(fs, _base_fields=fields):
             def to_dict(self, full=False):
                 result = {}
-                for f in (fs if full else fields):
+                for f in (fs if full else _base_fields):
                     val = getattr(self, f)
                     if isinstance(val, datetime):
                         val = val.isoformat()
@@ -509,5 +514,131 @@ def _add_to_dict_methods():
                 return result
             return to_dict
         cls.to_dict = make_to_dict(full_fields)
+
+# ───── PLM: Change Requests & Versioning ─────
+
+@api_bp.route('/parts/<int:part_id>/change-requests', methods=['POST'])
+@login_required
+def create_change_request(part_id):
+    part = Part.query.get_or_404(part_id)
+    data = request.get_json()
+    description = data.get('description', '').strip()
+    justification = data.get('justification', '').strip()
+    if not description:
+        return jsonify({'error': 'توضیحات درخواست الزامی است'}), 400
+    cr = ChangeRequest(
+        part_id=part_id,
+        requester_id=current_user.id,
+        description=description,
+        justification=justification
+    )
+    db.session.add(cr)
+    db.session.commit()
+    return jsonify({'success': True, 'data': cr.to_dict()}), 201
+
+
+@api_bp.route('/parts/<int:part_id>/change-requests', methods=['GET'])
+@login_required
+def list_change_requests(part_id):
+    part = Part.query.get_or_404(part_id)
+    crs = ChangeRequest.query.filter_by(part_id=part_id).order_by(ChangeRequest.created_at.desc()).all()
+    return jsonify({'success': True, 'data': [cr.to_dict() for cr in crs]})
+
+
+@api_bp.route('/change-requests/<int:req_id>', methods=['GET'])
+@login_required
+def get_change_request(req_id):
+    cr = ChangeRequest.query.get_or_404(req_id)
+    return jsonify({'success': True, 'data': cr.to_dict()})
+
+
+@api_bp.route('/change-requests/<int:req_id>/vote', methods=['POST'])
+@login_required
+def vote_change_request(req_id):
+    cr = ChangeRequest.query.get_or_404(req_id)
+    if cr.status != ChangeRequestStatus.pending:
+        return jsonify({'error': 'این درخواست در وضعیت بررسی نیست'}), 400
+    existing = ChangeVote.query.filter_by(change_request_id=req_id, user_id=current_user.id).first()
+    if existing:
+        return jsonify({'error': 'شما قبلاً در این درخواست رأی داده‌اید'}), 400
+    data = request.get_json()
+    vote_type = data.get('vote_type')
+    if vote_type not in ('approve', 'reject'):
+        return jsonify({'error': 'نوع رأی نامعتبر است'}), 400
+    vote = ChangeVote(
+        change_request_id=req_id,
+        user_id=current_user.id,
+        vote_type=VoteType(vote_type)
+    )
+    db.session.add(vote)
+    db.session.flush()
+    approve_count = ChangeVote.query.filter_by(change_request_id=req_id, vote_type=VoteType.approve).count()
+    if approve_count >= 2:
+        cr.status = ChangeRequestStatus.approved
+        cr.reviewed_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'success': True, 'data': cr.to_dict()})
+
+
+@api_bp.route('/change-requests/<int:req_id>', methods=['PUT'])
+@admin_required
+def review_change_request(req_id):
+    cr = ChangeRequest.query.get_or_404(req_id)
+    data = request.get_json()
+    status = data.get('status')
+    if status not in ('approved', 'rejected'):
+        return jsonify({'error': 'وضعیت نامعتبر است'}), 400
+    cr.status = ChangeRequestStatus(status)
+    cr.reviewed_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'success': True, 'data': cr.to_dict()})
+
+
+@api_bp.route('/parts/<int:part_id>/versions', methods=['GET'])
+@login_required
+def list_part_versions(part_id):
+    part = Part.query.get_or_404(part_id)
+    versions = PartVersion.query.filter_by(part_id=part_id).order_by(PartVersion.version_number.desc()).all()
+    return jsonify({'success': True, 'data': [v.to_dict() for v in versions]})
+
+
+@api_bp.route('/versions/<int:vid>', methods=['GET'])
+@login_required
+def get_version(vid):
+    version = PartVersion.query.get_or_404(vid)
+    return jsonify({'success': True, 'data': version.to_dict()})
+
+
+@api_bp.route('/parts/<int:part_id>/versions', methods=['POST'])
+@login_required
+def create_part_version(part_id):
+    part = Part.query.get_or_404(part_id)
+    data = request.get_json() or {}
+    change_summary = data.get('change_summary', '').strip()
+    last_ver = PartVersion.query.filter_by(part_id=part_id).order_by(PartVersion.version_number.desc()).first()
+    next_ver = (last_ver.version_number + 1) if last_ver else 1
+    version = PartVersion(
+        part_id=part_id,
+        version_number=next_ver,
+        change_summary=change_summary,
+        is_active=True
+    )
+    for v in PartVersion.query.filter_by(part_id=part_id, is_active=True).all():
+        v.is_active = False
+    db.session.add(version)
+    db.session.commit()
+    return jsonify({'success': True, 'data': version.to_dict()}), 201
+
+
+@api_bp.route('/versions/<int:vid>/activate', methods=['POST'])
+@login_required
+def activate_version(vid):
+    version = PartVersion.query.get_or_404(vid)
+    for v in PartVersion.query.filter_by(part_id=version.part_id, is_active=True).all():
+        v.is_active = False
+    version.is_active = True
+    db.session.commit()
+    return jsonify({'success': True, 'data': version.to_dict()})
+
 
 _add_to_dict_methods()

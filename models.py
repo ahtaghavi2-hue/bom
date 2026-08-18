@@ -2,6 +2,7 @@ from datetime import datetime
 from extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+import enum
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -17,6 +18,9 @@ class User(UserMixin, db.Model):
     products = db.relationship('Product', backref='creator', lazy='dynamic')
     schedules = db.relationship('ProductionSchedule', backref='creator', lazy='dynamic')
     work_orders = db.relationship('WorkOrder', backref='assignee', lazy='dynamic')
+    change_requests = db.relationship('ChangeRequest', backref='requester', lazy='dynamic',
+                                       foreign_keys='ChangeRequest.requester_id')
+    change_votes = db.relationship('ChangeVote', backref='voter', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -85,6 +89,15 @@ class Part(db.Model):
     documents = db.relationship('Document', backref='part', lazy='dynamic',
                                 primaryjoin='and_(Document.part_id==Part.id, Document.assembly_id==None)',
                                 cascade='all, delete-orphan')
+    versions = db.relationship('PartVersion', backref='part', lazy='dynamic',
+                                cascade='all, delete-orphan',
+                                order_by='PartVersion.version_number.desc()')
+    change_requests = db.relationship('ChangeRequest', backref='part', lazy='dynamic',
+                                       cascade='all, delete-orphan')
+    cost_history = db.relationship('CostHistory', backref='part', lazy='dynamic',
+                                    cascade='all, delete-orphan',
+                                    order_by='CostHistory.recorded_at')
+    vector_embedding = db.Column(db.Text)
 
 class Stage(db.Model):
     __tablename__ = 'stages'
@@ -102,6 +115,13 @@ class Stage(db.Model):
     actual_overhead = db.Column(db.Float, default=0.0)
     estimated_hours = db.Column(db.Float, default=0.0)
     actual_hours = db.Column(db.Float, default=0.0)
+    manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'), nullable=True)
+
+    manufacturer = db.relationship('Manufacturer', lazy='select')
+
+    @property
+    def manufacturer_name(self):
+        return self.manufacturer.name if self.manufacturer else None
 
     @property
     def estimated_total(self):
@@ -207,6 +227,10 @@ class Manufacturer(db.Model):
     phone = db.Column(db.String(50))
     address = db.Column(db.Text)
     notes = db.Column(db.Text)
+    quality_score = db.Column(db.Float, default=70.0)
+    reliability_score = db.Column(db.Float, default=70.0)
+    delivery_days = db.Column(db.Integer, default=7)
+    rating_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     emails = db.relationship('ManufacturerEmail', backref='manufacturer', lazy='dynamic', cascade='all, delete-orphan')
@@ -222,6 +246,10 @@ class Manufacturer(db.Model):
             'phone': self.phone,
             'address': self.address,
             'notes': self.notes,
+            'quality_score': self.quality_score,
+            'reliability_score': self.reliability_score,
+            'delivery_days': self.delivery_days,
+            'rating_count': self.rating_count,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'emails': [e.to_dict() for e in self.emails.all()],
             'socials': [s.to_dict() for s in self.socials.all()],
@@ -275,4 +303,199 @@ class StageDetail(db.Model):
             'step_number': self.step_number,
             'description': self.description,
             'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+# ───── PLM: Part Versioning ─────
+
+class PartVersion(db.Model):
+    __tablename__ = 'part_versions'
+    id = db.Column(db.Integer, primary_key=True)
+    part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=False, index=True)
+    version_number = db.Column(db.Integer, nullable=False)
+    change_summary = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('part_id', 'version_number', name='uq_part_version'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'part_id': self.part_id,
+            'version_number': self.version_number,
+            'change_summary': self.change_summary,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_active': self.is_active,
+        }
+
+
+# ───── PLM: Change Request ─────
+
+class ChangeRequestStatus(enum.Enum):
+    pending = 'pending'
+    approved = 'approved'
+    rejected = 'rejected'
+
+
+class ChangeRequest(db.Model):
+    __tablename__ = 'change_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=False, index=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    justification = db.Column(db.Text)
+    status = db.Column(db.Enum(ChangeRequestStatus), default=ChangeRequestStatus.pending, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    votes = db.relationship('ChangeVote', backref='change_request', lazy='dynamic',
+                            cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'part_id': self.part_id,
+            'requester_id': self.requester_id,
+            'requester_name': self.requester.username if self.requester else None,
+            'description': self.description,
+            'justification': self.justification,
+            'status': self.status.value if self.status else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'votes': [v.to_dict() for v in self.votes.all()],
+        }
+
+
+# ───── PLM: Change Vote ─────
+
+class VoteType(enum.Enum):
+    approve = 'approve'
+    reject = 'reject'
+
+
+class ChangeVote(db.Model):
+    __tablename__ = 'change_votes'
+    id = db.Column(db.Integer, primary_key=True)
+    change_request_id = db.Column(db.Integer, db.ForeignKey('change_requests.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    vote_type = db.Column(db.Enum(VoteType), nullable=False)
+    voted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('change_request_id', 'user_id', name='uq_change_vote'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'change_request_id': self.change_request_id,
+            'user_id': self.user_id,
+            'voter_name': self.voter.username if self.voter else None,
+            'vote_type': self.vote_type.value if self.vote_type else None,
+            'voted_at': self.voted_at.isoformat() if self.voted_at else None,
+        }
+
+
+# ───── AI & Data Analytics ─────
+
+class CostHistory(db.Model):
+    __tablename__ = 'cost_history'
+    id = db.Column(db.Integer, primary_key=True)
+    part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=False, index=True)
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    estimated_total = db.Column(db.Float, default=0.0)
+    actual_total = db.Column(db.Float, default=0.0)
+    material_cost = db.Column(db.Float, default=0.0)
+    labor_cost = db.Column(db.Float, default=0.0)
+    overhead = db.Column(db.Float, default=0.0)
+    quantity = db.Column(db.Integer, default=1)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'part_id': self.part_id,
+            'recorded_at': self.recorded_at.isoformat() if self.recorded_at else None,
+            'estimated_total': self.estimated_total,
+            'actual_total': self.actual_total,
+            'material_cost': self.material_cost,
+            'labor_cost': self.labor_cost,
+            'overhead': self.overhead,
+            'quantity': self.quantity,
+        }
+
+
+class PartSimilarity(db.Model):
+    __tablename__ = 'part_similarity'
+    id = db.Column(db.Integer, primary_key=True)
+    part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=False, index=True)
+    similar_part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=False)
+    score = db.Column(db.Float, default=0.0)
+
+    __table_args__ = (
+        db.UniqueConstraint('part_id', 'similar_part_id', name='uq_part_similarity'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'part_id': self.part_id,
+            'similar_part_id': self.similar_part_id,
+            'score': round(self.score, 4),
+        }
+
+
+class Artisan(db.Model):
+    __tablename__ = 'artisans'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    phone = db.Column(db.String(50))
+    specialty = db.Column(db.String(200))
+    labor_rate = db.Column(db.Float, default=0.0)
+    quality_score = db.Column(db.Float, default=70.0)
+    accuracy_score = db.Column(db.Float, default=70.0)
+    rating_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'phone': self.phone,
+            'specialty': self.specialty,
+            'labor_rate': self.labor_rate,
+            'quality_score': self.quality_score,
+            'accuracy_score': self.accuracy_score,
+            'rating_count': self.rating_count,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class VendorType(enum.Enum):
+    supplier = 'supplier'
+    artisan = 'artisan'
+
+
+class VendorRating(db.Model):
+    __tablename__ = 'vendor_ratings'
+    id = db.Column(db.Integer, primary_key=True)
+    vendor_type = db.Column(db.Enum(VendorType), nullable=False)
+    vendor_id = db.Column(db.Integer, nullable=False)
+    quality_score = db.Column(db.Float, default=0.0)
+    accuracy_score = db.Column(db.Float, default=0.0)
+    notes = db.Column(db.Text)
+    rated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'vendor_type': self.vendor_type.value if self.vendor_type else None,
+            'vendor_id': self.vendor_id,
+            'quality_score': self.quality_score,
+            'accuracy_score': self.accuracy_score,
+            'notes': self.notes,
+            'rated_by': self.rated_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
