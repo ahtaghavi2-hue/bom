@@ -175,7 +175,12 @@ def create_stage():
         estimated_material_cost=data.get('estimated_material_cost', 0),
         estimated_labor_cost=data.get('estimated_labor_cost', 0),
         estimated_overhead=data.get('estimated_overhead', 0),
-        estimated_hours=data.get('estimated_hours', 0)
+        estimated_hours=data.get('estimated_hours', 0),
+        time_optimistic=data.get('time_optimistic'),
+        time_most_likely=data.get('time_most_likely'),
+        time_pessimistic=data.get('time_pessimistic'),
+        required_resource_type=data.get('required_resource_type'),
+        storage_cost_per_day=data.get('storage_cost_per_day'),
     )
     db.session.add(stage)
     db.session.commit()
@@ -190,7 +195,9 @@ def update_stage(stage_id):
                 'estimated_material_cost', 'actual_material_cost',
                 'estimated_labor_cost', 'actual_labor_cost',
                 'estimated_overhead', 'actual_overhead',
-                'estimated_hours', 'actual_hours'):
+                'estimated_hours', 'actual_hours',
+                'time_optimistic', 'time_most_likely', 'time_pessimistic',
+                'required_resource_type', 'storage_cost_per_day'):
         if key in data:
             setattr(stage, key, data[key])
     db.session.commit()
@@ -454,7 +461,7 @@ def _auto_generate_work_orders(schedule):
         parts = []
         for p in assembly.parts.all():
             parts.append(p)
-        for sub in assembly.sub_assemblies:
+        for sub in Assembly.query.filter_by(parent_id=assembly.id).all():
             parts.extend(collect_parts(sub))
         return parts
     for assembly in assemblies:
@@ -493,6 +500,9 @@ def _add_to_dict_methods():
           'estimated_labor_cost', 'actual_labor_cost',
           'estimated_overhead', 'actual_overhead',
           'estimated_hours', 'actual_hours',
+          'time_optimistic', 'time_most_likely', 'time_pessimistic',
+          'required_resource_type', 'storage_cost_per_day',
+          'pert_expected_time', 'pert_std_dev',
           'estimated_total', 'actual_total']),
         (ProductionSchedule,
          ['id', 'product_id', 'quantity', 'status', 'priority', 'start_date', 'end_date', 'created_at'],
@@ -639,6 +649,207 @@ def activate_version(vid):
     version.is_active = True
     db.session.commit()
     return jsonify({'success': True, 'data': version.to_dict()})
+
+
+# ───── Phase 1: Resources CRUD ─────
+
+@api_bp.route('/resources', methods=['GET'])
+@login_required
+def list_resources():
+    from models import Resource
+    resources = Resource.query.order_by(Resource.resource_type, Resource.name).all()
+    return jsonify({'success': True, 'data': [r.to_dict() for r in resources]})
+
+
+@api_bp.route('/resources', methods=['POST'])
+@admin_required
+def create_resource():
+    from models import Resource
+    data = request.get_json()
+    resource = Resource(
+        name=data.get('name', 'منبع جدید'),
+        resource_type=data.get('resource_type', 'Assembly'),
+        capacity=data.get('capacity', 1),
+        shift_hours=data.get('shift_hours', 8.0),
+        cost_per_hour=data.get('cost_per_hour', 0.0),
+        notes=data.get('notes', ''),
+    )
+    db.session.add(resource)
+    db.session.commit()
+    return jsonify({'success': True, 'data': resource.to_dict()}), 201
+
+
+@api_bp.route('/resources/<int:rid>', methods=['GET'])
+@login_required
+def get_resource(rid):
+    from models import Resource
+    resource = Resource.query.get_or_404(rid)
+    return jsonify({'success': True, 'data': resource.to_dict()})
+
+
+@api_bp.route('/resources/<int:rid>', methods=['PUT'])
+@admin_required
+def update_resource(rid):
+    from models import Resource
+    resource = Resource.query.get_or_404(rid)
+    data = request.get_json()
+    for key in ('name', 'resource_type', 'capacity', 'shift_hours', 'cost_per_hour', 'notes'):
+        if key in data:
+            setattr(resource, key, data[key])
+    db.session.commit()
+    return jsonify({'success': True, 'data': resource.to_dict()})
+
+
+@api_bp.route('/resources/<int:rid>', methods=['DELETE'])
+@admin_required
+def delete_resource(rid):
+    from models import Resource
+    resource = Resource.query.get_or_404(rid)
+    db.session.delete(resource)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'منبع حذف شد'})
+
+
+# ───── Phase 1: Project Settings CRUD ─────
+
+@api_bp.route('/products/<int:pid>/settings', methods=['GET'])
+@login_required
+def get_project_settings(pid):
+    from models import ProjectSettings
+    Product.query.get_or_404(pid)
+    settings = ProjectSettings.query.filter_by(product_id=pid).first()
+    if not settings:
+        settings = ProjectSettings(product_id=pid)
+        db.session.add(settings)
+        db.session.commit()
+    return jsonify({'success': True, 'data': settings.to_dict()})
+
+
+@api_bp.route('/products/<int:pid>/settings', methods=['PUT'])
+@admin_required
+def update_project_settings(pid):
+    from models import ProjectSettings
+    Product.query.get_or_404(pid)
+    settings = ProjectSettings.query.filter_by(product_id=pid).first()
+    if not settings:
+        settings = ProjectSettings(product_id=pid)
+        db.session.add(settings)
+    data = request.get_json()
+    if 'target_delivery_date' in data:
+        settings.target_delivery_date = (
+            datetime.fromisoformat(data['target_delivery_date'])
+            if data['target_delivery_date'] else None
+        )
+    for key in ('daily_penalty', 'total_budget', 'risk_reserve_pct', 'monte_carlo_runs'):
+        if key in data:
+            setattr(settings, key, data[key])
+    db.session.commit()
+    return jsonify({'success': True, 'data': settings.to_dict()})
+
+
+# ───── Phase 1: Scenarios CRUD ─────
+
+@api_bp.route('/products/<int:pid>/scenarios', methods=['GET'])
+@login_required
+def list_scenarios(pid):
+    from models import Scenario
+    Product.query.get_or_404(pid)
+    scenarios = Scenario.query.filter_by(product_id=pid).order_by(Scenario.created_at.desc()).all()
+    return jsonify({'success': True, 'data': [s.to_dict() for s in scenarios]})
+
+
+@api_bp.route('/products/<int:pid>/scenarios', methods=['POST'])
+@admin_required
+def create_scenario(pid):
+    from models import Scenario
+    Product.query.get_or_404(pid)
+    data = request.get_json()
+    scenario = Scenario(
+        product_id=pid,
+        name=data.get('name', 'سناریوی جدید'),
+        description=data.get('description', ''),
+        is_default=data.get('is_default', False),
+    )
+    db.session.add(scenario)
+    db.session.commit()
+    return jsonify({'success': True, 'data': scenario.to_dict()}), 201
+
+
+@api_bp.route('/scenarios/<int:sid>', methods=['GET'])
+@login_required
+def get_scenario(sid):
+    from models import Scenario
+    scenario = Scenario.query.get_or_404(sid)
+    return jsonify({'success': True, 'data': scenario.to_dict()})
+
+
+@api_bp.route('/scenarios/<int:sid>', methods=['PUT'])
+@admin_required
+def update_scenario(sid):
+    from models import Scenario
+    scenario = Scenario.query.get_or_404(sid)
+    data = request.get_json()
+    for key in ('name', 'description', 'is_default'):
+        if key in data:
+            setattr(scenario, key, data[key])
+    db.session.commit()
+    return jsonify({'success': True, 'data': scenario.to_dict()})
+
+
+@api_bp.route('/scenarios/<int:sid>', methods=['DELETE'])
+@admin_required
+def delete_scenario(sid):
+    from models import Scenario
+    scenario = Scenario.query.get_or_404(sid)
+    db.session.delete(scenario)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'سناریو حذف شد'})
+
+
+# ───── Phase 1: Scenario Overrides CRUD ─────
+
+@api_bp.route('/scenarios/<int:sid>/overrides', methods=['GET'])
+@login_required
+def list_scenario_overrides(sid):
+    from models import ScenarioOverride
+    Scenario.query.get_or_404(sid)
+    overrides = ScenarioOverride.query.filter_by(scenario_id=sid).all()
+    return jsonify({'success': True, 'data': [o.to_dict() for o in overrides]})
+
+
+@api_bp.route('/scenarios/<int:sid>/overrides', methods=['POST'])
+@admin_required
+def create_scenario_override(sid):
+    from models import ScenarioOverride
+    Scenario.query.get_or_404(sid)
+    data = request.get_json()
+    # Upsert: update if same (scenario_id, part_id, field_name) exists
+    existing = ScenarioOverride.query.filter_by(
+        scenario_id=sid, part_id=data['part_id'], field_name=data['field_name']
+    ).first()
+    if existing:
+        existing.field_value = data.get('field_value')
+        override = existing
+    else:
+        override = ScenarioOverride(
+            scenario_id=sid,
+            part_id=data['part_id'],
+            field_name=data['field_name'],
+            field_value=data.get('field_value'),
+        )
+        db.session.add(override)
+    db.session.commit()
+    return jsonify({'success': True, 'data': override.to_dict()})
+
+
+@api_bp.route('/scenario-overrides/<int:oid>', methods=['DELETE'])
+@admin_required
+def delete_scenario_override(oid):
+    from models import ScenarioOverride
+    override = ScenarioOverride.query.get_or_404(oid)
+    db.session.delete(override)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Override حذف شد'})
 
 
 _add_to_dict_methods()

@@ -111,11 +111,17 @@ def _build_node_dict(obj, typ):
                 'actual_overhead': s.actual_overhead or 0,
                 'estimated_hours': s.estimated_hours or 0,
                 'actual_hours': s.actual_hours or 0,
+                'time_optimistic': s.time_optimistic,
+                'time_most_likely': s.time_most_likely,
+                'time_pessimistic': s.time_pessimistic,
+                'required_resource_type': s.required_resource_type or '',
+                'storage_cost_per_day': s.storage_cost_per_day or 0,
+                'pert_expected_time': s.pert_expected_time,
             })
         for img in r.images.all():
             images.append({'url': img.url, 'label': img.label or 'طراحی'})
 
-    return {
+    result = {
         'id': node_id, 'name': obj.name, 'type': typ,
         'parent': parent, 'children': children,
         'notes': notes, 'images': images,
@@ -125,6 +131,21 @@ def _build_node_dict(obj, typ):
         'stages': stages, 'supplier': supplier, 'supplier_email': r.supplier_email or '' if typ == 'part' else '',
         'order_count': order_count
     }
+    # ── Phase 1: include scheduling / uncertainty fields for parts ──
+    if typ == 'part':
+        result['time_optimistic'] = r.time_optimistic
+        result['time_most_likely'] = r.time_most_likely
+        result['time_pessimistic'] = r.time_pessimistic
+        result['cost_material'] = r.cost_material
+        result['cost_labor'] = r.cost_labor
+        result['cost_overhead'] = r.cost_overhead
+        result['required_resource_type'] = r.required_resource_type
+        result['storage_cost_per_day'] = r.storage_cost_per_day
+        # computed helpers
+        result['pert_expected_time'] = r.pert_expected_time
+        result['pert_std_dev'] = r.pert_std_dev
+        result['total_direct_cost'] = r.total_direct_cost
+    return result
 
 def load_data():
     nodes = {}
@@ -294,6 +315,12 @@ def update_node(node_id):
                 setattr(obj, key, req[key])
         if 'quantity' in req: obj.quantity = int(req['quantity'])
         if 'required_quantity' in req: obj.required_quantity = int(req['required_quantity'])
+        # ── Phase 1: scheduling / uncertainty fields ──
+        for key in ['time_optimistic', 'time_most_likely', 'time_pessimistic',
+                     'cost_material', 'cost_labor', 'cost_overhead',
+                     'required_resource_type', 'storage_cost_per_day']:
+            if key in req:
+                setattr(obj, key, req[key])
         if 'stages' in req:
             Stage.query.filter_by(part_id=obj.id).delete()
             for idx, s in enumerate(req['stages']):
@@ -307,7 +334,12 @@ def update_node(node_id):
                            estimated_overhead=s.get('estimated_overhead', 0),
                            actual_overhead=s.get('actual_overhead', 0),
                            estimated_hours=s.get('estimated_hours', 0),
-                           actual_hours=s.get('actual_hours', 0))
+                           actual_hours=s.get('actual_hours', 0),
+                           time_optimistic=s.get('time_optimistic'),
+                           time_most_likely=s.get('time_most_likely'),
+                           time_pessimistic=s.get('time_pessimistic'),
+                           required_resource_type=s.get('required_resource_type'),
+                           storage_cost_per_day=s.get('storage_cost_per_day'))
                 db.session.add(st)
         if 'images' in req:
             Image.query.filter_by(part_id=obj.id).delete()
@@ -328,10 +360,13 @@ def quick_update_node(node_id):
     if 'name' in req:
         old_name = obj.name
         obj.name = req['name']
-    if 'quantity' in req and typ == 'part':
-        obj.quantity = int(req['quantity'])
-    if 'required_quantity' in req and typ == 'part':
-        obj.required_quantity = int(req['required_quantity'])
+    if typ == 'part':
+        for key in ['quantity', 'required_quantity',
+                     'time_optimistic', 'time_most_likely', 'time_pessimistic',
+                     'cost_material', 'cost_labor', 'cost_overhead',
+                     'required_resource_type', 'storage_cost_per_day']:
+            if key in req:
+                setattr(obj, key, req[key])
     db.session.commit()
     return jsonify({'success': True, 'node': _build_node_dict(obj, typ)})
 
@@ -798,6 +833,18 @@ def init_db():
                 db.session.execute(text('ALTER TABLE stages ADD COLUMN manufacturer_id INTEGER'))
                 db.session.commit()
                 print('[OK] Added stages.manufacturer_id column')
+            # ── Phase 1+2: Stage as atomic scheduling unit ──
+            for col_name, col_type in [
+                ('time_optimistic', 'FLOAT'),
+                ('time_most_likely', 'FLOAT'),
+                ('time_pessimistic', 'FLOAT'),
+                ('required_resource_type', 'VARCHAR(50)'),
+                ('storage_cost_per_day', 'FLOAT'),
+            ]:
+                if col_name not in cols:
+                    db.session.execute(text(f'ALTER TABLE stages ADD COLUMN {col_name} {col_type}'))
+                    db.session.commit()
+                    print(f'[OK] Added stages.{col_name} column')
         if 'manufacturers' in existing_tables:
             cols = [c['name'] for c in insp.get_columns('manufacturers')]
             for col_name, col_type, default in [

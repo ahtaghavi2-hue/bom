@@ -971,6 +971,16 @@ function _doSaveNode() {
     if (node.type === 'part') {
         updatedData.partType = $('#field-partType').val();
         updatedData.stages = tempStages;
+        // ── Phase 1: PERT / cost / resource fields ──
+        const toFloat = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+        updatedData.time_optimistic = toFloat($('#field-time_optimistic').val());
+        updatedData.time_most_likely = toFloat($('#field-time_most_likely').val());
+        updatedData.time_pessimistic = toFloat($('#field-time_pessimistic').val());
+        updatedData.cost_material = toFloat($('#field-cost_material').val());
+        updatedData.cost_labor = toFloat($('#field-cost_labor').val());
+        updatedData.cost_overhead = toFloat($('#field-cost_overhead').val());
+        updatedData.required_resource_type = $('#field-required_resource_type').val() || null;
+        updatedData.storage_cost_per_day = toFloat($('#field-storage_cost_per_day').val());
     }
     fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
     .then(() => {
@@ -985,6 +995,12 @@ function _doSaveNode() {
 
 function bindAutoSave() {
     $('#field-name, #field-partCode, #field-specs, #field-notes, #field-order_count, #field-required_quantity, #field-quantity, #field-supplier, #field-supplier-email, #field-partType').off('.autosave').on('change.autosave keyup.autosave', function() {
+        autoSaveNode();
+    });
+    // Phase 1: PERT / cost / resource fields
+    $('#field-time_optimistic, #field-time_most_likely, #field-time_pessimistic, #field-cost_material, #field-cost_labor, #field-cost_overhead, #field-storage_cost_per_day, #field-required_resource_type').off('.autosave').on('change.autosave keyup.autosave', function() {
+        updatePertDisplay();
+        updateCostDisplay();
         autoSaveNode();
     });
     $('#field-name, #field-partCode, #field-supplier, #field-supplier-email').off('.autosaveEnter').on('keypress.autosaveEnter', function(e) {
@@ -1036,7 +1052,19 @@ function showEditForm(node) {
     if (isPart) {
         $('#tab-btn-mfg').show();
         $('#tab-btn-schedule').hide();
+        $('#tab-btn-pert').show();
         $('#field-partType').val(node.partType || '');
+        // ── Phase 1: populate PERT / cost / resource fields ──
+        $('#field-time_optimistic').val(node.time_optimistic ?? '');
+        $('#field-time_most_likely').val(node.time_most_likely ?? '');
+        $('#field-time_pessimistic').val(node.time_pessimistic ?? '');
+        $('#field-cost_material').val(node.cost_material ?? '');
+        $('#field-cost_labor').val(node.cost_labor ?? '');
+        $('#field-cost_overhead').val(node.cost_overhead ?? '');
+        $('#field-required_resource_type').val(node.required_resource_type || '');
+        $('#field-storage_cost_per_day').val(node.storage_cost_per_day ?? '');
+        updatePertDisplay();
+        updateCostDisplay();
 
         const required = parseInt(node.required_quantity) || 1;
         const available = parseInt(node.quantity) || 0;
@@ -1066,12 +1094,14 @@ function showEditForm(node) {
     } else if (node.type === 'product') {
         $('#tab-btn-mfg').hide();
         $('#tab-btn-schedule').show();
+        $('#tab-btn-pert').hide();
         $('#tab-btn-docs').hide();
         $('#tab-btn-plm-changes').hide();
         loadSchedulesForProduct(currentNodeId);
     } else {
         $('#tab-btn-mfg').hide();
         $('#tab-btn-schedule').hide();
+        $('#tab-btn-pert').hide();
         $('#tab-btn-docs').hide();
         $('#tab-btn-plm-changes').hide();
         $('#progress-container').hide();
@@ -1080,6 +1110,36 @@ function showEditForm(node) {
         }
     }
     bindAutoSave();
+}
+
+// ── Phase 1: PERT & Cost display helpers ──
+
+function updatePertDisplay() {
+    const o = parseFloat($('#field-time_optimistic').val());
+    const m = parseFloat($('#field-time_most_likely').val());
+    const p = parseFloat($('#field-time_pessimistic').val());
+    if (!isNaN(o) && !isNaN(m) && !isNaN(p) && o <= m && m <= p) {
+        const expected = (o + 4 * m + p) / 6;
+        const stddev = (p - o) / 6;
+        $('#pert-expected').html('<strong>زمان مورد انتظار:</strong> ' + expected.toFixed(1) + ' ساعت');
+        $('#pert-stddev').html('<strong>انحراف معیار:</strong> ' + stddev.toFixed(1) + ' ساعت');
+        $('#pert-result').show();
+    } else {
+        $('#pert-result').hide();
+    }
+}
+
+function updateCostDisplay() {
+    const mat = parseFloat($('#field-cost_material').val()) || 0;
+    const lab = parseFloat($('#field-cost_labor').val()) || 0;
+    const ovh = parseFloat($('#field-cost_overhead').val()) || 0;
+    const total = mat + lab + ovh;
+    if (total > 0) {
+        $('#cost-direct-total').html('<strong>هزینه مستقیم کل:</strong> ' + total.toLocaleString('fa-IR') + ' ریال');
+        $('#cost-direct-result').show();
+    } else {
+        $('#cost-direct-result').hide();
+    }
 }
 
 function updateProgressBar() {

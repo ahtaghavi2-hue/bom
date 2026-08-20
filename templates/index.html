@@ -109,6 +109,7 @@
                             <button class="tab-btn" id="tab-btn-inventory" onclick="switchTab('tab-inventory')">📦 انبار</button>
                             <button class="tab-btn" id="tab-btn-mfg" onclick="switchTab('tab-mfg')" style="display:none;">⚙️ ساخت</button>
                             <button class="tab-btn" id="tab-btn-schedule" onclick="switchTab('tab-schedule')" style="display:none;">📅 برنامه تولید</button>
+                            <button class="tab-btn" id="tab-btn-pert" onclick="switchTab('tab-pert')" style="display:none;">⏱️ PERT / هزینه</button>
                             <button class="tab-btn" id="tab-btn-docs" onclick="switchTab('tab-docs')" style="display:none;">📁 مدارک فنی</button>
                             <button class="tab-btn" id="tab-btn-plm-changes" onclick="switchTab('tab-plm-changes')" style="display:none;">🔄 درخواست تغییر</button>
                         </div>
@@ -234,6 +235,71 @@
                                 <label id="schedule-label">برنامه‌های تولید این محصول:</label>
                                 <div id="schedule-list" style="max-height:300px;overflow-y:auto;"></div>
                                 <button onclick="showAddSchedule()" class="btn-small" style="margin-top:8px;background:#3498db;">➕ <span id="add-schedule-btn-text">برنامه جدید</span></button>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-pert">
+                            <!-- PERT Time Estimates -->
+                            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;margin-bottom:12px;">
+                                <div style="font-weight:600;font-size:14px;margin-bottom:10px;">⏱️ برآورد زمانی سه‌نقطه‌ای (PERT)</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                                    <div class="form-group" style="margin:0;">
+                                        <label style="font-size:12px;">خوش‌بینانه (O)</label>
+                                        <input type="number" id="field-time_optimistic" step="0.5" min="0" placeholder="ساعت">
+                                    </div>
+                                    <div class="form-group" style="margin:0;">
+                                        <label style="font-size:12px;">محتمل (M)</label>
+                                        <input type="number" id="field-time_most_likely" step="0.5" min="0" placeholder="ساعت">
+                                    </div>
+                                    <div class="form-group" style="margin:0;">
+                                        <label style="font-size:12px;">بدبینانه (P)</label>
+                                        <input type="number" id="field-time_pessimistic" step="0.5" min="0" placeholder="ساعت">
+                                    </div>
+                                </div>
+                                <div id="pert-result" style="margin-top:10px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:13px;display:none;">
+                                    <span id="pert-expected"></span> &nbsp;|&nbsp; <span id="pert-stddev"></span>
+                                </div>
+                            </div>
+                            <!-- Cost Breakdown -->
+                            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;margin-bottom:12px;">
+                                <div style="font-weight:600;font-size:14px;margin-bottom:10px;">💰 تفکیک هزینه</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                                    <div class="form-group" style="margin:0;">
+                                        <label style="font-size:12px;">مواد اولیه</label>
+                                        <input type="number" id="field-cost_material" step="100" min="0" placeholder="ریال">
+                                    </div>
+                                    <div class="form-group" style="margin:0;">
+                                        <label style="font-size:12px;">دستمزد</label>
+                                        <input type="number" id="field-cost_labor" step="100" min="0" placeholder="ریال">
+                                    </div>
+                                    <div class="form-group" style="margin:0;">
+                                        <label style="font-size:12px;">سربار</label>
+                                        <input type="number" id="field-cost_overhead" step="100" min="0" placeholder="ریال">
+                                    </div>
+                                </div>
+                                <div id="cost-direct-result" style="margin-top:10px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:13px;display:none;">
+                                    <span id="cost-direct-total"></span>
+                                </div>
+                            </div>
+                            <!-- Resource & Storage -->
+                            <div style="background:var(--bg-tertiary);padding:12px;border-radius:8px;margin-bottom:12px;">
+                                <div style="font-weight:600;font-size:14px;margin-bottom:10px;">🏭 منابع و انبارداری</div>
+                                <div class="form-group" style="margin-bottom:10px;">
+                                    <label style="font-size:12px;">نوع منبع مورد نیاز</label>
+                                    <select id="field-required_resource_type" style="width:100%;padding:6px;border-radius:4px;border:1px solid var(--border);">
+                                        <option value="">— بدون محدودیت —</option>
+                                        <option value="CNC">CNC</option>
+                                        <option value="Assembly">Assembly (مونتاژ)</option>
+                                        <option value="QC">QC (کنترل کیفیت)</option>
+                                        <option value="Electronics">Electronics (الکترونیک)</option>
+                                        <option value="Finish">Finish (رنگ‌کاری)</option>
+                                        <option value="Test">Test (تست)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:12px;">هزینه انبارداری روزانه (ریال)</label>
+                                    <input type="number" id="field-storage_cost_per_day" step="100" min="0" placeholder="ریال / روز">
+                                </div>
                             </div>
                         </div>
 
