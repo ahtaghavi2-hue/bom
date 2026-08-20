@@ -114,23 +114,62 @@ class Part(db.Model):
                                     order_by='CostHistory.recorded_at')
     vector_embedding = db.Column(db.Text)
 
+    # ── Stage-derived PERT / cost helpers ──
+    # When stages exist, Part-level PERT and cost are *summed* from stages.
+    # The raw Part columns (time_optimistic etc.) serve as fallback for parts
+    # that have no stages (legacy mode).
+
+    @property
+    def _stage_lists(self):
+        """Return (stage_times, stage_costs) tuples from child stages."""
+        stage_times = []  # (O, M, P) per stage
+        stage_costs = []  # (material, labor, overhead) per stage
+        for s in self.stages.all():
+            if s.time_optimistic is not None and s.time_most_likely is not None and s.time_pessimistic is not None:
+                stage_times.append((s.time_optimistic, s.time_most_likely, s.time_pessimistic))
+            stage_costs.append((s.estimated_material_cost or 0, s.estimated_labor_cost or 0, s.estimated_overhead or 0))
+        return stage_times, stage_costs
+
+    @property
+    def has_stages_with_pert(self):
+        """True if at least one child stage has PERT estimates."""
+        return len(self._stage_lists[0]) > 0
+
     @property
     def pert_expected_time(self):
-        """PERT expected time: (O + 4M + P) / 6"""
+        """PERT expected time: (O + 4M + P) / 6.
+        If stages exist, sums across all stages. Otherwise uses Part-level values.
+        """
+        times, _ = self._stage_lists
+        if times:
+            total_o = sum(t[0] for t in times)
+            total_m = sum(t[1] for t in times)
+            total_p = sum(t[2] for t in times)
+            return (total_o + 4 * total_m + total_p) / 6.0
         if self.time_optimistic is not None and self.time_most_likely is not None and self.time_pessimistic is not None:
             return (self.time_optimistic + 4 * self.time_most_likely + self.time_pessimistic) / 6.0
         return None
 
     @property
     def pert_std_dev(self):
-        """PERT standard deviation: (P - O) / 6"""
+        """PERT standard deviation: (P - O) / 6."""
+        times, _ = self._stage_lists
+        if times:
+            total_o = sum(t[0] for t in times)
+            total_p = sum(t[2] for t in times)
+            return (total_p - total_o) / 6.0
         if self.time_optimistic is not None and self.time_pessimistic is not None:
             return (self.time_pessimistic - self.time_optimistic) / 6.0
         return None
 
     @property
     def total_direct_cost(self):
-        """Sum of material + labor + overhead."""
+        """Sum of material + labor + overhead.
+        If stages exist, sums across all stages. Otherwise uses Part-level values.
+        """
+        _, costs = self._stage_lists
+        if costs:
+            return sum(c[0] + c[1] + c[2] for c in costs)
         m = self.cost_material or 0.0
         l = self.cost_labor or 0.0
         o = self.cost_overhead or 0.0

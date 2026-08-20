@@ -971,16 +971,29 @@ function _doSaveNode() {
     if (node.type === 'part') {
         updatedData.partType = $('#field-partType').val();
         updatedData.stages = tempStages;
-        // ── Phase 1: PERT / cost / resource fields ──
+        // ── Phase 1+2: PERT / cost / resource fields ──
         const toFloat = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
-        updatedData.time_optimistic = toFloat($('#field-time_optimistic').val());
-        updatedData.time_most_likely = toFloat($('#field-time_most_likely').val());
-        updatedData.time_pessimistic = toFloat($('#field-time_pessimistic').val());
-        updatedData.cost_material = toFloat($('#field-cost_material').val());
-        updatedData.cost_labor = toFloat($('#field-cost_labor').val());
-        updatedData.cost_overhead = toFloat($('#field-cost_overhead').val());
-        updatedData.required_resource_type = $('#field-required_resource_type').val() || null;
-        updatedData.storage_cost_per_day = toFloat($('#field-storage_cost_per_day').val());
+        const hasStagePert = tempStages.some(s => s.time_optimistic != null);
+        if (hasStagePert) {
+            // Stages carry PERT/cost → don't overwrite Part-level fields
+            updatedData.time_optimistic = null;
+            updatedData.time_most_likely = null;
+            updatedData.time_pessimistic = null;
+            updatedData.cost_material = null;
+            updatedData.cost_labor = null;
+            updatedData.cost_overhead = null;
+            updatedData.required_resource_type = null;
+            updatedData.storage_cost_per_day = null;
+        } else {
+            updatedData.time_optimistic = toFloat($('#field-time_optimistic').val());
+            updatedData.time_most_likely = toFloat($('#field-time_most_likely').val());
+            updatedData.time_pessimistic = toFloat($('#field-time_pessimistic').val());
+            updatedData.cost_material = toFloat($('#field-cost_material').val());
+            updatedData.cost_labor = toFloat($('#field-cost_labor').val());
+            updatedData.cost_overhead = toFloat($('#field-cost_overhead').val());
+            updatedData.required_resource_type = $('#field-required_resource_type').val() || null;
+            updatedData.storage_cost_per_day = toFloat($('#field-storage_cost_per_day').val());
+        }
     }
     fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
     .then(() => {
@@ -1054,17 +1067,44 @@ function showEditForm(node) {
         $('#tab-btn-schedule').hide();
         $('#tab-btn-pert').show();
         $('#field-partType').val(node.partType || '');
-        // ── Phase 1: populate PERT / cost / resource fields ──
-        $('#field-time_optimistic').val(node.time_optimistic ?? '');
-        $('#field-time_most_likely').val(node.time_most_likely ?? '');
-        $('#field-time_pessimistic').val(node.time_pessimistic ?? '');
-        $('#field-cost_material').val(node.cost_material ?? '');
-        $('#field-cost_labor').val(node.cost_labor ?? '');
-        $('#field-cost_overhead').val(node.cost_overhead ?? '');
-        $('#field-required_resource_type').val(node.required_resource_type || '');
-        $('#field-storage_cost_per_day').val(node.storage_cost_per_day ?? '');
-        updatePertDisplay();
-        updateCostDisplay();
+        // ── Phase 1+2: populate PERT / cost / resource fields ──
+        const hasStages = node.stages && node.stages.length > 0 && node.stages.some(s => s.time_optimistic != null);
+        if (hasStages) {
+            // Stages exist → show computed values as read-only
+            $('#field-time_optimistic').val('').prop('readonly', true).css('background', '#f0f0f0');
+            $('#field-time_most_likely').val('').prop('readonly', true).css('background', '#f0f0f0');
+            $('#field-time_pessimistic').val('').prop('readonly', true).css('background', '#f0f0f0');
+            $('#field-cost_material').val('').prop('readonly', true).css('background', '#f0f0f0');
+            $('#field-cost_labor').val('').prop('readonly', true).css('background', '#f0f0f0');
+            $('#field-cost_overhead').val('').prop('readonly', true).css('background', '#f0f0f0');
+            $('#field-required_resource_type').prop('disabled', true).css('background', '#f0f0f0');
+            $('#field-storage_cost_per_day').val('').prop('readonly', true).css('background', '#f0f0f0');
+            // Show computed PERT
+            if (node.pert_expected_time != null) {
+                $('#pert-expected').html('<strong>زمان مورد انتظار (مجموع مراحل):</strong> ' + node.pert_expected_time.toFixed(1) + ' ساعت');
+                $('#pert-stddev').html('<strong>انحراف معیار (مجموع مراحل):</strong> ' + (node.pert_std_dev || 0).toFixed(1) + ' ساعت');
+                $('#pert-result').show();
+            }
+            // Show computed cost
+            if (node.total_direct_cost > 0) {
+                $('#cost-direct-total').html('<strong>هزینه مستقیم کل (مجموع مراحل):</strong> ' + node.total_direct_cost.toLocaleString('fa-IR') + ' ریال');
+                $('#cost-direct-result').show();
+            }
+            $('#pert-computed-note').show();
+        } else {
+            // No stages → editable fields
+            $('#field-time_optimistic').val(node.time_optimistic ?? '').prop('readonly', false).css('background', '');
+            $('#field-time_most_likely').val(node.time_most_likely ?? '').prop('readonly', false).css('background', '');
+            $('#field-time_pessimistic').val(node.time_pessimistic ?? '').prop('readonly', false).css('background', '');
+            $('#field-cost_material').val(node.cost_material ?? '').prop('readonly', false).css('background', '');
+            $('#field-cost_labor').val(node.cost_labor ?? '').prop('readonly', false).css('background', '');
+            $('#field-cost_overhead').val(node.cost_overhead ?? '').prop('readonly', false).css('background', '');
+            $('#field-required_resource_type').prop('disabled', false).css('background', '');
+            $('#field-storage_cost_per_day').val(node.storage_cost_per_day ?? '').prop('readonly', false).css('background', '');
+            updatePertDisplay();
+            updateCostDisplay();
+            $('#pert-computed-note').hide();
+        }
 
         const required = parseInt(node.required_quantity) || 1;
         const available = parseInt(node.quantity) || 0;
