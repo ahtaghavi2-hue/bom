@@ -12,3 +12,5 @@ email-validator==2.3.0
 openpyxl==3.1.2
 graphviz==0.20.1
 Pillow==10.2.0
+celery[redis]==5.3.6
+redis==5.0.1

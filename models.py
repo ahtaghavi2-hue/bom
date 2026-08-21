@@ -79,6 +79,21 @@ class Part(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # ── Phase 1: PERT / Uncertainty fields (all nullable → backward-compatible) ──
+    time_optimistic = db.Column(db.Float, nullable=True)      # best-case duration
+    time_most_likely = db.Column(db.Float, nullable=True)     # most-likely duration
+    time_pessimistic = db.Column(db.Float, nullable=True)     # worst-case duration
+
+    # ── Phase 1: Cost breakdown (new fields, defaults keep existing rows safe) ──
+    cost_material = db.Column(db.Float, nullable=True)        # direct material cost
+    cost_labor = db.Column(db.Float, nullable=True)           # direct labor cost
+    cost_overhead = db.Column(db.Float, nullable=True)        # overhead allocation
+
+    # ── Phase 1: Resource & storage ──
+    required_resource_type = db.Column(db.String(50), nullable=True)   # e.g. "CNC", "Assembly", "QC"
+    storage_cost_per_day = db.Column(db.Float, nullable=True)          # daily warehousing cost
+
+    # ── Relationships ──
     stages = db.relationship('Stage', backref='part', lazy='dynamic', cascade='all, delete-orphan',
                              order_by='Stage.sort_order')
     images = db.relationship('Image', backref='part_ref', lazy='dynamic',
@@ -99,6 +114,67 @@ class Part(db.Model):
                                     order_by='CostHistory.recorded_at')
     vector_embedding = db.Column(db.Text)
 
+    # ── Stage-derived PERT / cost helpers ──
+    # When stages exist, Part-level PERT and cost are *summed* from stages.
+    # The raw Part columns (time_optimistic etc.) serve as fallback for parts
+    # that have no stages (legacy mode).
+
+    @property
+    def _stage_lists(self):
+        """Return (stage_times, stage_costs) tuples from child stages."""
+        stage_times = []  # (O, M, P) per stage
+        stage_costs = []  # (material, labor, overhead) per stage
+        for s in self.stages.all():
+            if s.time_optimistic is not None and s.time_most_likely is not None and s.time_pessimistic is not None:
+                stage_times.append((s.time_optimistic, s.time_most_likely, s.time_pessimistic))
+            stage_costs.append((s.estimated_material_cost or 0, s.estimated_labor_cost or 0, s.estimated_overhead or 0))
+        return stage_times, stage_costs
+
+    @property
+    def has_stages_with_pert(self):
+        """True if at least one child stage has PERT estimates."""
+        return len(self._stage_lists[0]) > 0
+
+    @property
+    def pert_expected_time(self):
+        """PERT expected time: (O + 4M + P) / 6.
+        If stages exist, sums across all stages. Otherwise uses Part-level values.
+        """
+        times, _ = self._stage_lists
+        if times:
+            total_o = sum(t[0] for t in times)
+            total_m = sum(t[1] for t in times)
+            total_p = sum(t[2] for t in times)
+            return (total_o + 4 * total_m + total_p) / 6.0
+        if self.time_optimistic is not None and self.time_most_likely is not None and self.time_pessimistic is not None:
+            return (self.time_optimistic + 4 * self.time_most_likely + self.time_pessimistic) / 6.0
+        return None
+
+    @property
+    def pert_std_dev(self):
+        """PERT standard deviation: (P - O) / 6."""
+        times, _ = self._stage_lists
+        if times:
+            total_o = sum(t[0] for t in times)
+            total_p = sum(t[2] for t in times)
+            return (total_p - total_o) / 6.0
+        if self.time_optimistic is not None and self.time_pessimistic is not None:
+            return (self.time_pessimistic - self.time_optimistic) / 6.0
+        return None
+
+    @property
+    def total_direct_cost(self):
+        """Sum of material + labor + overhead.
+        If stages exist, sums across all stages. Otherwise uses Part-level values.
+        """
+        _, costs = self._stage_lists
+        if costs:
+            return sum(c[0] + c[1] + c[2] for c in costs)
+        m = self.cost_material or 0.0
+        l = self.cost_labor or 0.0
+        o = self.cost_overhead or 0.0
+        return m + l + o
+
 class Stage(db.Model):
     __tablename__ = 'stages'
     id = db.Column(db.Integer, primary_key=True)
@@ -117,6 +193,13 @@ class Stage(db.Model):
     actual_hours = db.Column(db.Float, default=0.0)
     manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'), nullable=True)
 
+    # ── Phase 1+2: Stage as the atomic scheduling unit ──
+    time_optimistic = db.Column(db.Float, nullable=True)      # best-case duration (hours)
+    time_most_likely = db.Column(db.Float, nullable=True)     # most-likely duration (hours)
+    time_pessimistic = db.Column(db.Float, nullable=True)     # worst-case duration (hours)
+    required_resource_type = db.Column(db.String(50), nullable=True)   # e.g. "CNC", "Assembly", "QC"
+    storage_cost_per_day = db.Column(db.Float, nullable=True)          # daily warehousing cost for this stage
+
     manufacturer = db.relationship('Manufacturer', lazy='select')
 
     @property
@@ -130,6 +213,20 @@ class Stage(db.Model):
     @property
     def actual_total(self):
         return self.actual_material_cost + self.actual_labor_cost + self.actual_overhead
+
+    @property
+    def pert_expected_time(self):
+        """PERT expected time: (O + 4M + P) / 6 — None if not estimated."""
+        if self.time_optimistic is not None and self.time_most_likely is not None and self.time_pessimistic is not None:
+            return (self.time_optimistic + 4 * self.time_most_likely + self.time_pessimistic) / 6.0
+        return None
+
+    @property
+    def pert_std_dev(self):
+        """PERT standard deviation: (P - O) / 6 — None if not estimated."""
+        if self.time_optimistic is not None and self.time_pessimistic is not None:
+            return (self.time_pessimistic - self.time_optimistic) / 6.0
+        return None
 
 class Image(db.Model):
     __tablename__ = 'images'
@@ -498,4 +595,209 @@ class VendorRating(db.Model):
             'notes': self.notes,
             'rated_by': self.rated_by,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 1 – Scheduling & Resource Models
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class Resource(db.Model):
+    """Workshop resource: CNC machines, assembly stations, QC stations, etc.
+
+    Each resource has a capacity (number of identical units) and an optional
+    per-shift override.  Parts reference a resource by `required_resource_type`.
+    """
+    __tablename__ = 'resources'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    resource_type = db.Column(db.String(50), nullable=False, index=True)  # CNC, Assembly, QC …
+    capacity = db.Column(db.Integer, default=1)              # units available simultaneously
+    shift_hours = db.Column(db.Float, default=8.0)           # hours per shift
+    cost_per_hour = db.Column(db.Float, default=0.0)         # operating cost / hour
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # ── Relationships ──
+    assignments = db.relationship('ResourceAssignment', backref='resource', lazy='dynamic')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'resource_type': self.resource_type,
+            'capacity': self.capacity,
+            'shift_hours': self.shift_hours,
+            'cost_per_hour': self.cost_per_hour,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ResourceAssignment(db.Model):
+    """Tracks which Part (or Stage) is assigned to which Resource in a schedule."""
+    __tablename__ = 'resource_assignments'
+    id = db.Column(db.Integer, primary_key=True)
+    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id'), nullable=False)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('production_schedules.id'), nullable=True)
+    part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=True)
+    start_time = db.Column(db.Float, nullable=True)      # hours from project start
+    duration = db.Column(db.Float, nullable=True)         # hours required
+    quantity = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'resource_id': self.resource_id,
+            'schedule_id': self.schedule_id,
+            'part_id': self.part_id,
+            'start_time': self.start_time,
+            'duration': self.duration,
+            'quantity': self.quantity,
+        }
+
+
+class ProjectSettings(db.Model):
+    """Per-product project configuration: deadline, daily penalty, budget."""
+    __tablename__ = 'project_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), unique=True, nullable=False)
+    target_delivery_date = db.Column(db.DateTime, nullable=True)    # final deadline
+    daily_penalty = db.Column(db.Float, default=0.0)                 # penalty per day of delay
+    total_budget = db.Column(db.Float, default=0.0)                  # overall budget ceiling
+    risk_reserve_pct = db.Column(db.Float, default=10.0)             # % buffer on budget
+    monte_carlo_runs = db.Column(db.Integer, default=1000)           # iterations
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    product = db.relationship('Product', backref=db.backref('project_settings', uselist=False))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'target_delivery_date': self.target_delivery_date.isoformat() if self.target_delivery_date else None,
+            'daily_penalty': self.daily_penalty,
+            'total_budget': self.total_budget,
+            'risk_reserve_pct': self.risk_reserve_pct,
+            'monte_carlo_runs': self.monte_carlo_runs,
+        }
+
+
+class Scenario(db.Model):
+    """A named what-if scenario: "optimistic", "resource shortage", etc."""
+    __tablename__ = 'scenarios'
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    is_default = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    product = db.relationship('Product', backref=db.backref('scenarios', lazy='dynamic'))
+    overrides = db.relationship('ScenarioOverride', backref='scenario', lazy='dynamic',
+                                cascade='all, delete-orphan')
+    results = db.relationship('ScheduleResult', backref='scenario', lazy='dynamic',
+                               cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'name': self.name,
+            'description': self.description,
+            'is_default': self.is_default,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'overrides': [o.to_dict() for o in self.overrides.all()],
+        }
+
+
+class ScenarioOverride(db.Model):
+    """Per-part parameter overrides inside a scenario."""
+    __tablename__ = 'scenario_overrides'
+    id = db.Column(db.Integer, primary_key=True)
+    scenario_id = db.Column(db.Integer, db.ForeignKey('scenarios.id'), nullable=False)
+    part_id = db.Column(db.Integer, db.ForeignKey('parts.id'), nullable=False)
+    field_name = db.Column(db.String(50), nullable=False)   # e.g. time_optimistic, cost_material
+    field_value = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('scenario_id', 'part_id', 'field_name', name='uq_scenario_override'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'scenario_id': self.scenario_id,
+            'part_id': self.part_id,
+            'field_name': self.field_name,
+            'field_value': self.field_value,
+        }
+
+
+class ScheduleResult(db.Model):
+    """Cached output of a simulation / optimization run."""
+    __tablename__ = 'schedule_results'
+    id = db.Column(db.Integer, primary_key=True)
+    scenario_id = db.Column(db.Integer, db.ForeignKey('scenarios.id'), nullable=True)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('production_schedules.id'), nullable=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    result_type = db.Column(db.String(30), nullable=False)  # monte_carlo | cpm | resource_leveling
+    computed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # JSON-serialised payload – flexible schema for varying output shapes
+    result_data = db.Column(db.JSON, nullable=True)
+    # High-level summary columns for quick dashboard queries
+    estimated_duration = db.Column(db.Float, nullable=True)       # total project duration (hours)
+    estimated_cost = db.Column(db.Float, nullable=True)           # total cost estimate
+    probability_on_time = db.Column(db.Float, nullable=True)      # 0-1 fraction from Monte Carlo
+    critical_path_ids = db.Column(db.Text, nullable=True)        # comma-separated part IDs
+
+    product = db.relationship('Product', backref=db.backref('schedule_results', lazy='dynamic'))
+    schedule = db.relationship('ProductionSchedule',
+                               backref=db.backref('schedule_results', lazy='dynamic'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'scenario_id': self.scenario_id,
+            'schedule_id': self.schedule_id,
+            'product_id': self.product_id,
+            'result_type': self.result_type,
+            'computed_at': self.computed_at.isoformat() if self.computed_at else None,
+            'estimated_duration': self.estimated_duration,
+            'estimated_cost': self.estimated_cost,
+            'probability_on_time': self.probability_on_time,
+            'critical_path_ids': self.critical_path_ids,
+        }
+
+
+class ProjectCostSnapshot(db.Model):
+    """Point-in-time cost snapshot for S-Curve visualisation."""
+    __tablename__ = 'project_cost_snapshots'
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    day_number = db.Column(db.Integer, nullable=False)         # day from project start
+    cumulative_material = db.Column(db.Float, default=0.0)
+    cumulative_labor = db.Column(db.Float, default=0.0)
+    cumulative_overhead = db.Column(db.Float, default=0.0)
+    cumulative_total = db.Column(db.Float, default=0.0)
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    product = db.relationship('Product',
+                              backref=db.backref('cost_snapshots', lazy='dynamic'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'day_number': self.day_number,
+            'cumulative_material': self.cumulative_material,
+            'cumulative_labor': self.cumulative_labor,
+            'cumulative_overhead': self.cumulative_overhead,
+            'cumulative_total': self.cumulative_total,
         }
