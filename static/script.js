@@ -550,7 +550,7 @@ function loadNotifications() {
                     shortageList.append(`
                         <div class="notif-item" onclick="goToNode('${item.id}')">
                             <strong>${item.name}</strong><br>
-                            <span style="color:#d32f2f;">${t('shortage2')}: ${item.shortage}</span>
+                            <span class="notif-shortage-text">${t('shortage2')}: ${item.shortage}</span>
                             <span style="color:var(--text-muted);"> (${t('available')}: ${item.available} / ${t('required')}: ${item.required})</span>
                         </div>
                     `);
@@ -564,7 +564,7 @@ function loadNotifications() {
             } else {
                 notifs.in_progress.forEach(item => {
                     progressList.append(`
-                        <div class="notif-item" style="border-right-color:#FF9800;" onclick="goToNode('${item.id}')">
+                        <div class="notif-item notif-progress-item" onclick="goToNode('${item.id}')">
                             <strong>${item.name}</strong><br>
                             <span style="color:var(--text-secondary);">${item.stages} ${t('stagesCount')}</span>
                         </div>
@@ -579,7 +579,7 @@ function loadNotifications() {
             } else {
                 notifs.orders_pending.forEach(item => {
                     orderList.append(`
-                        <div class="notif-item" style="border-right-color:#3498db;" onclick="goToNode('${item.id}')">
+                        <div class="notif-item notif-order-item" onclick="goToNode('${item.id}')">
                             <strong>${item.name}</strong><br>
                             <span style="color:var(--text-secondary);">${item.count} ${t('order')}</span>
                         </div>
@@ -621,12 +621,56 @@ function goToNode(nodeId) {
 
 function getAncestorOrderCount(nodeId) {
     let node = currentData.nodes[nodeId];
-    while (node) {
-        if (node.type === 'product' && node.order_count > 0) return node.order_count;
+    const visited = new Set();
+    while (node && !visited.has(node.id)) {
+        visited.add(node.id);
+        if (node.type === 'product' && Number(node.order_count) > 0) return Number(node.order_count);
         if (node.parent) node = currentData.nodes[node.parent];
         else break;
     }
     return 1;
+}
+
+function getTotalRequired(nodeId) {
+    const node = currentData.nodes[nodeId];
+    if (!node || node.type === 'product') return null;
+    const useLiveValue = nodeId === currentNodeId;
+    let total = 1;
+    let current = node;
+    const visited = new Set();
+    while (current && current.type !== 'product' && !visited.has(current.id)) {
+        visited.add(current.id);
+        const requiredValue = useLiveValue && current.id === currentNodeId
+            ? $('#field-required_quantity').val()
+            : current.required_quantity;
+        total *= Math.max(parseInt(requiredValue, 10) || 1, 1);
+        current = current.parent ? currentData.nodes[current.parent] : null;
+    }
+    const productOrder = current && current.type === 'product' && currentNodeId === current.id
+        ? $('#field-order_count').val()
+        : (current && current.type === 'product' ? current.order_count : getAncestorOrderCount(nodeId));
+    return total * Math.max(parseInt(productOrder, 10) || 1, 1);
+}
+
+function refreshCurrentRequirement() {
+    const node = currentData.nodes[currentNodeId];
+    if (!node) return;
+    if (node.type === 'product') {
+        node.order_count = Math.max(parseInt($('#field-order_count').val(), 10) || 0, 0);
+        renderTree();
+        if (currentMainView === 'kanban') renderKanban();
+        updateDashboard();
+        loadNotifications();
+        return;
+    }
+    node.required_quantity = Math.max(parseInt($('#field-required_quantity').val(), 10) || 1, 1);
+    node.quantity = Math.max(parseInt($('#field-quantity').val(), 10) || 0, 0);
+    const totalRequired = getTotalRequired(currentNodeId);
+    $('#field-total_required').val(totalRequired == null ? '' : totalRequired);
+    calculateShortage();
+    updateDashboard();
+    if (currentMainView === 'tree') renderTree();
+    else if (currentMainView === 'kanban') renderKanban();
 }
 
 function getBreadcrumbs(nodeId) {
@@ -658,11 +702,10 @@ function updateBreadcrumbs(nodeId) {
 function updateDashboard() {
     let total = 0, done = 0, missing = 0;
     Object.values(currentData.nodes).forEach(node => {
-        if (node.type === 'part') {
+        if (node.type === 'part' || node.type === 'assembly') {
             total++;
-            if (node.status === 'completed') done++;
-            const orderCount = getAncestorOrderCount(node.id);
-            const totalReq = (node.required_quantity || 1) * orderCount;
+            const totalReq = getTotalRequired(node.id);
+            if ((node.quantity || 0) >= totalReq) done++;
             if ((node.quantity || 0) < totalReq) missing++;
         }
     });
@@ -782,9 +825,8 @@ function showHoverCard(nodeId, e) {
     let statusText = '';
     let statusColor = '';
 
-    if (node.type === 'part') {
-        const orderCount = getAncestorOrderCount(nodeId);
-        const totalReq = (node.required_quantity || 1) * orderCount;
+    if (node.type === 'part' || node.type === 'assembly') {
+        const totalReq = getTotalRequired(nodeId);
         const available = node.quantity || 0;
         stockText = t('hoverStock') + ': ' + available + ' / ' + t('hoverTotalReq') + ': ' + totalReq;
 
@@ -837,10 +879,14 @@ function buildTreeNode(nodeId) {
         text = '🏭 ' + text;
         if (node.order_count > 0) text += ` (${node.order_count} ${t('order')})`;
     } else if (node.type === 'assembly') {
-        text = '📦 ' + text;
+        const totalRequired = getTotalRequired(nodeId);
+        const available = node.quantity || 0;
+        text = '📦 ' + text + ` (${available}/${totalRequired})`;
+        if (available >= totalRequired) { color = '#4CAF50'; text += ' 🟢'; }
+        else if (available > 0) { color = '#FF9800'; text += ' 🟡'; }
+        else { color = '#F44336'; text += ' 🔴'; }
     } else if (node.type === 'part') {
-        const orderCount = getAncestorOrderCount(nodeId);
-        const totalRequired = (node.required_quantity || 1) * orderCount;
+        const totalRequired = getTotalRequired(nodeId);
         const available = node.quantity || 0;
 
         if (available >= totalRequired) { color = '#4CAF50'; text += ' 🟢'; }
@@ -885,9 +931,8 @@ function renderKanban() {
     };
 
     Object.values(currentData.nodes).forEach(node => {
-        if (node.type === 'part') {
-            const orderCount = getAncestorOrderCount(node.id);
-            const totalReq = (node.required_quantity || 1) * orderCount;
+        if (node.type === 'part' || node.type === 'assembly') {
+            const totalReq = getTotalRequired(node.id);
             const available = node.quantity || 0;
             let status = 'not_started';
             if (available >= totalReq) status = 'completed';
@@ -968,7 +1013,7 @@ function _doSaveNode() {
     if (node.type === 'product') {
         updatedData.order_count = parseInt($('#field-order_count').val()) || 0;
     }
-    if (node.type === 'part') {
+    if (node.type === 'part' || node.type === 'assembly') {
         updatedData.partType = $('#field-partType').val();
         updatedData.stages = tempStages;
         // ── Phase 1+2: PERT / cost / resource fields ──
@@ -996,8 +1041,13 @@ function _doSaveNode() {
         }
     }
     fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
+    .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    })
     .then(() => {
         loadData();
+        loadNotifications();
         $('#save-indicator').text('✅').fadeIn(150).delay(1200).fadeOut(300);
     })
     .catch(e => {
@@ -1008,6 +1058,9 @@ function _doSaveNode() {
 
 function bindAutoSave() {
     $('#field-name, #field-partCode, #field-specs, #field-notes, #field-order_count, #field-required_quantity, #field-quantity, #field-supplier, #field-supplier-email, #field-partType').off('.autosave').on('change.autosave keyup.autosave', function() {
+        if (this.id === 'field-required_quantity' || this.id === 'field-order_count' || this.id === 'field-quantity') {
+            refreshCurrentRequirement();
+        }
         autoSaveNode();
     });
     // Phase 1: PERT / cost / resource fields
@@ -1047,11 +1100,10 @@ function showEditForm(node) {
         $('#order-count-group').hide();
     }
 
-    if (node.type === 'part') {
-        const orderCount = getAncestorOrderCount(currentNodeId);
-        const totalRequired = (node.required_quantity || 1) * orderCount;
+    if (node.type === 'part' || node.type === 'assembly') {
+        const totalRequired = getTotalRequired(currentNodeId);
         $('#total-required-group').show();
-        $('#field-total_required').val(totalRequired);
+        $('#field-total_required').val(totalRequired == null ? '' : totalRequired);
     } else {
         $('#total-required-group').hide();
     }
@@ -1060,9 +1112,10 @@ function showEditForm(node) {
     renderImageGallery(node.images || []);
 
     const isPart = node.type === 'part';
-    $('#part-email-group').toggle(isPart);
+    const isEditableNode = isPart || node.type === 'assembly';
+    $('#part-email-group').toggle(isEditableNode);
 
-    if (isPart) {
+    if (isEditableNode) {
         $('#tab-btn-mfg').show();
         $('#tab-btn-schedule').hide();
         $('#tab-btn-pert').show();
@@ -1071,14 +1124,14 @@ function showEditForm(node) {
         const hasStages = node.stages && node.stages.length > 0 && node.stages.some(s => s.time_optimistic != null);
         if (hasStages) {
             // Stages exist → show computed values as read-only
-            $('#field-time_optimistic').val('').prop('readonly', true).css('background', '#f0f0f0');
-            $('#field-time_most_likely').val('').prop('readonly', true).css('background', '#f0f0f0');
-            $('#field-time_pessimistic').val('').prop('readonly', true).css('background', '#f0f0f0');
-            $('#field-cost_material').val('').prop('readonly', true).css('background', '#f0f0f0');
-            $('#field-cost_labor').val('').prop('readonly', true).css('background', '#f0f0f0');
-            $('#field-cost_overhead').val('').prop('readonly', true).css('background', '#f0f0f0');
-            $('#field-required_resource_type').prop('disabled', true).css('background', '#f0f0f0');
-            $('#field-storage_cost_per_day').val('').prop('readonly', true).css('background', '#f0f0f0');
+            $('#field-time_optimistic').val('').prop('readonly', true).css('background', 'var(--input-readonly-bg)');
+            $('#field-time_most_likely').val('').prop('readonly', true).css('background', 'var(--input-readonly-bg)');
+            $('#field-time_pessimistic').val('').prop('readonly', true).css('background', 'var(--input-readonly-bg)');
+            $('#field-cost_material').val('').prop('readonly', true).css('background', 'var(--input-readonly-bg)');
+            $('#field-cost_labor').val('').prop('readonly', true).css('background', 'var(--input-readonly-bg)');
+            $('#field-cost_overhead').val('').prop('readonly', true).css('background', 'var(--input-readonly-bg)');
+            $('#field-required_resource_type').prop('disabled', true).css('background', 'var(--input-readonly-bg)');
+            $('#field-storage_cost_per_day').val('').prop('readonly', true).css('background', 'var(--input-readonly-bg)');
             // Show computed PERT
             if (node.pert_expected_time != null) {
                 $('#pert-expected').html('<strong>زمان مورد انتظار (مجموع مراحل):</strong> ' + node.pert_expected_time.toFixed(1) + ' ساعت');
@@ -1108,8 +1161,7 @@ function showEditForm(node) {
 
         const required = parseInt(node.required_quantity) || 1;
         const available = parseInt(node.quantity) || 0;
-        const orderCount = getAncestorOrderCount(currentNodeId);
-        const totalReq = required * orderCount;
+        const totalReq = getTotalRequired(currentNodeId);
         const autoStatus = available >= totalReq ? 'completed' : (available > 0 ? 'in_progress' : 'not_started');
         node.status = autoStatus;
 
@@ -1259,25 +1311,28 @@ function closeModal() {
 function calculateShortage() {
     const node = currentData.nodes[currentNodeId];
     if (!node) return;
-    const orderCount = getAncestorOrderCount(currentNodeId);
-    const required = (parseInt(node.required_quantity) || 1) * orderCount;
+    const required = getTotalRequired(currentNodeId) || 1;
     const available = parseInt(node.quantity) || 0;
     const shortage = required - available;
     const infoDiv = $('#shortage-info');
     const textSpan = $('#shortage-text');
-    if (shortage > 0) {
-        infoDiv.show(); infoDiv.css('background', '#ffebee');
-        textSpan.html(`<strong>${shortage}</strong> ${t('shortage2')}! (${t('hoverTotalReq')}: ${required}, ${t('available')}: ${available})`);
-        textSpan.css('color', '#d32f2f');
-    } else if (shortage === 0) {
-        infoDiv.show(); infoDiv.css('background', '#e8f5e9');
-        textSpan.html('🟢 ' + t('hoverSufficient'));
-        textSpan.css('color', '#2e7d32');
-    } else {
-        infoDiv.show(); infoDiv.css('background', '#e3f2fd');
-        textSpan.html(`<strong>${Math.abs(shortage)}</strong>`);
-        textSpan.css('color', '#1976d2');
+    const hier = node.hier_status || '';
+    let hierNote = '';
+    if (node.type !== 'part' && hier && hier !== 'کافی') {
+        const srcMap = hier === 'کسری' ? 'کسر از زیرمجموعه' : 'ناقص از زیرمجموعه';
+        hierNote = '<br><small>⚠️ ' + srcMap + ': وضعیت این گره به دلیل زیرمجموعه‌ها ' + hier + ' است</small>';
     }
+    if (shortage > 0) {
+        infoDiv.show().removeClass('status-alert-success status-alert-warning status-alert-info').addClass('status-alert-danger');
+        textSpan.html(`<strong>${shortage}</strong> ${t('shortage2')}! (${t('hoverTotalReq')}: ${required}, ${t('available')}: ${available})` + hierNote);
+    } else if (shortage === 0) {
+        infoDiv.show().removeClass('status-alert-danger status-alert-warning status-alert-info').addClass(hier && hier !== 'کافی' ? 'status-alert-warning' : 'status-alert-success');
+        textSpan.html('🟢 ' + t('hoverSufficient') + hierNote);
+    } else {
+        infoDiv.show().removeClass('status-alert-danger status-alert-success status-alert-warning').addClass('status-alert-info');
+        textSpan.html(`<strong>${Math.abs(shortage)}</strong>` + hierNote);
+    }
+    textSpan.css('color', '');
 }
 
 function renderStages() {

@@ -1,8 +1,21 @@
 from flask import current_app, render_template
 from extensions import db, mail
-from models import Part, NotificationLog
+from models import Part, Assembly, NotificationLog
 from flask_mail import Message
 from datetime import datetime
+
+
+def _part_total_required(part):
+    """Calculate a part's requirement through all assembly ancestors."""
+    total = max(part.required_quantity or 1, 1)
+    assembly = part.assembly
+    visited = set()
+    while assembly and assembly.id not in visited:
+        visited.add(assembly.id)
+        total *= max(assembly.required_quantity or 1, 1)
+        assembly = assembly.parent
+    product = part.assembly.product if part.assembly else None
+    return total * max(product.order_count if product and product.order_count else 1, 1)
 
 def send_low_stock_email(part):
     if not part.supplier_email:
@@ -15,8 +28,8 @@ def send_low_stock_email(part):
                 part_name=part.name,
                 part_code=part.part_code or '-',
                 current_stock=part.quantity or 0,
-                required=part.required_quantity or 1,
-                shortage=(part.required_quantity or 1) - (part.quantity or 0)
+                required=_part_total_required(part),
+                shortage=_part_total_required(part) - (part.quantity or 0)
             )
         )
         mail.send(msg)
@@ -48,7 +61,7 @@ def check_and_notify_low_stock():
         low_stock_parts = Part.query.all()
         sent = 0
         for part in low_stock_parts:
-            required = part.required_quantity or 1
+            required = _part_total_required(part)
             available = part.quantity or 0
             if available < required and part.supplier_email:
                 if send_low_stock_email(part):

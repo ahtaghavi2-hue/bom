@@ -14,6 +14,19 @@
     --accent-red: #f44336;
     --accent-blue: #2196F3;
     --accent-orange: #FF9800;
+    --input-readonly-bg: #e8ebef;
+    --input-disabled-bg: #e1e4e8;
+    --input-placeholder: #8a8f98;
+    --status-danger-bg: #ffebee;
+    --status-danger-text: #b71c1c;
+    --status-warning-bg: #fff3cd;
+    --status-warning-text: #856404;
+    --status-success-bg: #e8f5e9;
+    --status-success-text: #2e7d32;
+    --status-info-bg: #e3f2fd;
+    --status-info-text: #1565c0;
+    --jstree-hover-bg: #e8f0f8;
+    --jstree-selected-bg: #d7e8f7;
     --panel-radius: 10px;
     --transition-fast: 0.15s ease;
     --transition-normal: 0.25s ease;
@@ -32,6 +45,19 @@
     --shadow-color: rgba(0,0,0,0.3);
     --header-bg: #161b22;
     --header-text: #e4e6eb;
+    --input-readonly-bg: #303846;
+    --input-disabled-bg: #2a303b;
+    --input-placeholder: #8b949e;
+    --status-danger-bg: #3b2025;
+    --status-danger-text: #ffb4ab;
+    --status-warning-bg: #40351d;
+    --status-warning-text: #f5d67b;
+    --status-success-bg: #1d3828;
+    --status-success-text: #9be7ae;
+    --status-info-bg: #1d3447;
+    --status-info-text: #9dccf5;
+    --jstree-hover-bg: #2a3545;
+    --jstree-selected-bg: #354b63;
 }
 
 * { box-sizing: border-box; }
@@ -267,8 +293,9 @@ html[dir="ltr"] .stage-item-new { flex-direction: row; }
 .stage-add input { flex: 1; }
 
 .form-actions { display: flex; gap: 10px; margin-top: auto; padding-top: 15px; border-top: 1px solid var(--border-light); }
-button { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; font-family: inherit; font-size: 14px; transition: all var(--transition-fast); transform: scale(1); }
+button { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; font-family: inherit; font-size: 14px; transition: all var(--transition-fast); transform: scale(1); color: var(--text-primary); background: var(--bg-tertiary); }
 button:active { transform: scale(0.96); }
+button:disabled { cursor: not-allowed; opacity: 0.65; }
 .btn-primary { background: var(--accent-green); color: white; width: 100%; padding: 10px; font-size: 15px; }
 .btn-primary:hover { background: #45a049; }
 .btn-save { background: var(--accent-blue); color: white; flex: 1; }
@@ -285,6 +312,12 @@ button:active { transform: scale(0.96); }
 .btn-schematic:hover { background: #512DA8; }
 
 #shortage-info { font-size: 14px; font-weight: bold; transition: all var(--transition-normal); animation: fadeSlideIn 0.3s ease; }
+.notif-shortage-text { color: var(--status-danger-text); }
+.notif-progress-item { border-right-color: var(--accent-orange); }
+.notif-order-item { border-right-color: var(--accent-blue); }
+
+.calculated-field { background: var(--input-readonly-bg) !important; color: var(--text-primary) !important; }
+.pert-computed-note { background: var(--status-success-bg) !important; color: var(--status-success-text) !important; }
 .placeholder { text-align: center; color: var(--text-muted); padding: 50px 20px; font-size: 16px; flex: 1; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.5s ease; }
 
 /* Hover Card */
@@ -368,6 +401,19 @@ button:active { transform: scale(0.96); }
 .manufacturers-list { max-height: 300px; overflow-y: auto; }
 .mfr-header:hover { background: var(--border-light) !important; }
 .mfr-body { border-top: 1px solid var(--border-color); }
+
+.form-group input::placeholder, .form-group textarea::placeholder, .search-box input::placeholder,
+.modal-field input::placeholder, .modal-field textarea::placeholder { color: var(--input-placeholder); opacity: 1; }
+.form-group input[readonly], .form-group textarea[readonly], .form-group select:disabled,
+.modal-field input[readonly], .modal-field textarea[readonly], .modal-field select:disabled { background: var(--input-readonly-bg) !important; color: var(--text-primary) !important; border-color: var(--border-color); }
+.form-group input:disabled, .form-group textarea:disabled,
+.modal-field input:disabled, .modal-field textarea:disabled { background: var(--input-disabled-bg) !important; color: var(--text-secondary) !important; }
+.form-group select option, .modal-field select option { background: var(--bg-secondary); color: var(--text-primary); }
+
+/* jsTree defaults are light-themed; keep the main tree readable in dark mode. */
+.jstree-default .jstree-anchor { color: var(--text-primary); }
+.jstree-default .jstree-anchor:hover { background: var(--jstree-hover-bg); color: var(--text-primary); }
+.jstree-default .jstree-clicked { background: var(--jstree-selected-bg); color: var(--text-primary); box-shadow: none; }
 
 /* Modal Card */
 .modal-overlay { display: none; position: fixed; z-index: 4000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; backdrop-filter: blur(3px); animation: fadeIn 0.15s; }

@@ -46,6 +46,30 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 # ───── DB ↔ Old-Format Compatibility Layer ─────
 
+def _stage_to_dict(s):
+    return {
+        'id': s.id,
+        'name': s.name,
+        'status': s.status or 'not_started',
+        'manufacturer_id': s.manufacturer_id,
+        'manufacturer_name': s.manufacturer_name,
+        'estimated_material_cost': s.estimated_material_cost or 0,
+        'actual_material_cost': s.actual_material_cost or 0,
+        'estimated_labor_cost': s.estimated_labor_cost or 0,
+        'actual_labor_cost': s.actual_labor_cost or 0,
+        'estimated_overhead': s.estimated_overhead or 0,
+        'actual_overhead': s.actual_overhead or 0,
+        'estimated_hours': s.estimated_hours or 0,
+        'actual_hours': s.actual_hours or 0,
+        'time_optimistic': s.time_optimistic,
+        'time_most_likely': s.time_most_likely,
+        'time_pessimistic': s.time_pessimistic,
+        'required_resource_type': s.required_resource_type or '',
+        'storage_cost_per_day': s.storage_cost_per_day or 0,
+        'pert_expected_time': s.pert_expected_time,
+    }
+
+
 def _build_node_dict(obj, typ):
     children = []
     parent = None
@@ -60,6 +84,7 @@ def _build_node_dict(obj, typ):
     quantity = 0
     required_quantity = 1
     supplier = ''
+    supplier_email = ''
     order_count = 0
 
     if typ == 'product':
@@ -78,13 +103,22 @@ def _build_node_dict(obj, typ):
         a = obj
         node_id = f'a{a.id}'
         parent = f'p{a.product_id}' if not a.parent_id else f'a{a.parent_id}'
-        notes = a.description or ''
+        notes = a.notes or a.description or ''
+        partCode = a.part_code or ''
+        partType = a.part_type or ''
+        status = a.status or 'not_started'
+        quantity = a.quantity or 0
+        required_quantity = a.required_quantity or 1
+        supplier = a.supplier or ''
+        supplier_email = a.supplier_email or ''
         children = [f'r{part.id}' for part in Part.query.filter_by(assembly_id=a.id).all()]
         for sub in Assembly.query.filter_by(parent_id=a.id).all():
             children.append(f'a{sub.id}')
+        for s in a.stages.order_by(Stage.sort_order).all():
+            stages.append(_stage_to_dict(s))
         for img in a.images.all():
             images.append({'url': img.url, 'label': img.label or 'طراحی'})
-    else:
+    elif typ == 'part':
         r = obj
         node_id = f'r{r.id}'
         parent = f'a{r.assembly_id}'
@@ -96,30 +130,13 @@ def _build_node_dict(obj, typ):
         quantity = r.quantity or 0
         required_quantity = r.required_quantity or 1
         supplier = r.supplier or ''
+        supplier_email = r.supplier_email or ''
         for s in r.stages.order_by(Stage.sort_order).all():
-            stages.append({
-                'id': s.id,
-                'name': s.name,
-                'status': s.status or 'not_started',
-                'manufacturer_id': s.manufacturer_id,
-                'manufacturer_name': s.manufacturer_name,
-                'estimated_material_cost': s.estimated_material_cost or 0,
-                'actual_material_cost': s.actual_material_cost or 0,
-                'estimated_labor_cost': s.estimated_labor_cost or 0,
-                'actual_labor_cost': s.actual_labor_cost or 0,
-                'estimated_overhead': s.estimated_overhead or 0,
-                'actual_overhead': s.actual_overhead or 0,
-                'estimated_hours': s.estimated_hours or 0,
-                'actual_hours': s.actual_hours or 0,
-                'time_optimistic': s.time_optimistic,
-                'time_most_likely': s.time_most_likely,
-                'time_pessimistic': s.time_pessimistic,
-                'required_resource_type': s.required_resource_type or '',
-                'storage_cost_per_day': s.storage_cost_per_day or 0,
-                'pert_expected_time': s.pert_expected_time,
-            })
+            stages.append(_stage_to_dict(s))
         for img in r.images.all():
             images.append({'url': img.url, 'label': img.label or 'طراحی'})
+    else:
+        return None
 
     result = {
         'id': node_id, 'name': obj.name, 'type': typ,
@@ -128,7 +145,7 @@ def _build_node_dict(obj, typ):
         'partCode': partCode, 'specs': specs, 'docLink': docLink,
         'partType': partType, 'status': status,
         'quantity': quantity, 'required_quantity': required_quantity,
-        'stages': stages, 'supplier': supplier, 'supplier_email': r.supplier_email or '' if typ == 'part' else '',
+        'stages': stages, 'supplier': supplier, 'supplier_email': supplier_email,
         'order_count': order_count
     }
     # ── Phase 1: include scheduling / uncertainty fields for parts ──
@@ -145,6 +162,23 @@ def _build_node_dict(obj, typ):
         result['pert_expected_time'] = r.pert_expected_time
         result['pert_std_dev'] = r.pert_std_dev
         result['total_direct_cost'] = r.total_direct_cost
+    elif typ == 'assembly':
+        stage_times = []
+        stage_costs = []
+        for s in stages:
+            if s.get('time_optimistic') is not None and s.get('time_most_likely') is not None and s.get('time_pessimistic') is not None:
+                stage_times.append((s['time_optimistic'], s['time_most_likely'], s['time_pessimistic']))
+            stage_costs.append((s.get('estimated_material_cost', 0), s.get('estimated_labor_cost', 0), s.get('estimated_overhead', 0)))
+        if stage_times:
+            total_o = sum(t[0] for t in stage_times)
+            total_m = sum(t[1] for t in stage_times)
+            total_p = sum(t[2] for t in stage_times)
+            result['pert_expected_time'] = (total_o + 4 * total_m + total_p) / 6.0
+            result['pert_std_dev'] = (total_p - total_o) / 6.0
+        else:
+            result['pert_expected_time'] = None
+            result['pert_std_dev'] = None
+        result['total_direct_cost'] = sum(c[0] + c[1] + c[2] for c in stage_costs)
     return result
 
 def load_data():
@@ -160,7 +194,102 @@ def load_data():
     for r in Part.query.all():
         nd = _build_node_dict(r, 'part')
         nodes[nd['id']] = nd
-    return {'nodes': nodes, 'root_ids': root_ids}
+    data = {'nodes': nodes, 'root_ids': root_ids}
+    _attach_total_required(data)
+    _attach_hier_status(data)
+    return data
+
+_STATUS_SEVERITY = {'کافی': 2, 'ناقص': 1, 'کسری': 0}
+
+
+def _quantity_multiplier(value, default=1):
+    """Normalize a BOM quantity while preserving the legacy minimum of one."""
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        value = default
+    return max(value, default)
+
+
+def get_total_required(node_id, data, order_count=None):
+    """Return the cumulative requirement for a node along its BOM path.
+
+    ``required_quantity`` is stored as the quantity needed from the direct
+    parent. The displayed/stock requirement is therefore the product order
+    quantity multiplied by every quantity factor on the path.
+    """
+    node = data['nodes'].get(node_id)
+    if not node or node.get('type') == 'product':
+        return None
+
+    total = 1
+    current = node
+    visited = set()
+    while current and current.get('type') != 'product':
+        current_id = current.get('id')
+        if current_id in visited:
+            break
+        visited.add(current_id)
+        total *= _quantity_multiplier(current.get('required_quantity', 1))
+        parent_id = current.get('parent')
+        current = data['nodes'].get(parent_id) if parent_id else None
+
+    # Keep the existing UI convention: a missing or zero order count means one unit.
+    if order_count is None:
+        product = current if current and current.get('type') == 'product' else None
+        order_count = product.get('order_count', 1) if product else 1
+    order_count = _quantity_multiplier(order_count)
+    return total * order_count
+
+
+def _attach_total_required(data):
+    """Attach cumulative requirements to every inventory-bearing node."""
+    for node_id, node in data['nodes'].items():
+        if node.get('type') in ('part', 'assembly'):
+            node['total_required'] = get_total_required(node_id, data)
+
+
+def _required_for_schedule(node_id, data, schedule_quantity):
+    """Calculate a part's requirement for a production schedule quantity."""
+    return get_total_required(node_id, data, order_count=schedule_quantity) or 0
+
+
+def _own_stock_status(node, total_required=None):
+    """وضعیت موجودی خودِ گره (بدون در نظر گرفتن زیرمجموعه‌ها)."""
+    required = total_required if total_required is not None else _quantity_multiplier(node.get('required_quantity', 1))
+    available = node.get('quantity', 0) or 0
+    if available >= required:
+        return 'کافی'
+    if available > 0:
+        return 'ناقص'
+    return 'کسری'
+
+
+def _compute_hier_status(node_id, data, memo):
+    """وضعیت سلسله‌مراتبی: بدترین وضعیت بین خودِ گره و همه‌ی زیرمجموعه‌ها."""
+    if node_id in memo:
+        return memo[node_id]
+    node = data['nodes'].get(node_id)
+    if not node:
+        return 'کافی'
+    if node['type'] in ('part', 'assembly'):
+        worst = _own_stock_status(node, node.get('total_required'))
+    else:  # محصول بر اساس ماژول‌های متصل مستقیم سنجیده می‌شود
+        worst = 'کافی'
+    for child_id in node.get('children', []):
+        child_status = _compute_hier_status(child_id, data, memo)
+        if _STATUS_SEVERITY.get(child_status, 2) < _STATUS_SEVERITY.get(worst, 2):
+            worst = child_status
+    memo[node_id] = worst
+    return worst
+
+
+def _attach_hier_status(data):
+    """hier_status را برای هر گره بر اساس زنجیره به‌روز می‌کند."""
+    memo = {}
+    for node_id in data['nodes']:
+        data['nodes'][node_id]['hier_status'] = _compute_hier_status(node_id, data, memo)
+
 
 def _resolve_node(node_id):
     if node_id.startswith('p'):
@@ -237,9 +366,10 @@ def get_notifications():
     data = load_data()
     notifications = {'shortage': [], 'orders_pending': [], 'in_progress': []}
     for node_id, node in data['nodes'].items():
-        if node['type'] == 'part':
-            order_count = get_ancestor_order_count(node_id, data)
-            total_req = node.get('required_quantity', 1) * order_count
+        if node['type'] in ('part', 'assembly'):
+            total_req = node.get('total_required')
+            if total_req is None:
+                total_req = get_total_required(node_id, data)
             available = node.get('quantity', 0)
             if available < total_req:
                 notifications['shortage'].append({
@@ -274,9 +404,13 @@ def create_node():
     elif typ == 'assembly':
         parent_obj, parent_typ = _resolve_node(parent_id)
         if parent_typ == 'product':
-            a = Assembly(product_id=parent_obj.id, parent_id=None, name=name)
+            a = Assembly(product_id=parent_obj.id, parent_id=None, name=name,
+                         part_code='', part_type='make', quantity=0, required_quantity=1,
+                         supplier='', notes='', status='not_started')
         else:
-            a = Assembly(product_id=parent_obj.product_id if hasattr(parent_obj, 'product_id') else 1, parent_id=parent_obj.id, name=name)
+            a = Assembly(product_id=parent_obj.product_id if hasattr(parent_obj, 'product_id') else 1, parent_id=parent_obj.id, name=name,
+                         part_code='', part_type='make', quantity=0, required_quantity=1,
+                         supplier='', notes='', status='not_started')
         db.session.add(a)
         db.session.flush()
     else:
@@ -307,12 +441,50 @@ def update_node(node_id):
         obj.code = req.get('partCode', obj.code)
         obj.specs = req.get('specs', obj.specs)
     elif typ == 'assembly':
-        if 'name' in req: obj.name = req['name']
-        obj.description = req.get('notes', obj.description)
+        assembly_fields = {
+            'name': 'name', 'notes': 'notes', 'partCode': 'part_code',
+            'partType': 'part_type', 'status': 'status',
+            'supplier': 'supplier', 'supplier_email': 'supplier_email',
+        }
+        for request_key, model_key in assembly_fields.items():
+            if request_key in req:
+                setattr(obj, model_key, req[request_key])
+        if 'quantity' in req: obj.quantity = int(req['quantity'])
+        if 'required_quantity' in req: obj.required_quantity = int(req['required_quantity'])
+        if 'stages' in req:
+            Stage.query.filter_by(assembly_id=obj.id, part_id=None).delete()
+            for idx, s in enumerate(req['stages']):
+                st = Stage(assembly_id=obj.id, name=s.get('name', 'Stage'),
+                           status=s.get('status', 'not_started'), sort_order=idx,
+                           manufacturer_id=s.get('manufacturer_id') or None,
+                           estimated_material_cost=s.get('estimated_material_cost', 0),
+                           actual_material_cost=s.get('actual_material_cost', 0),
+                           estimated_labor_cost=s.get('estimated_labor_cost', 0),
+                           actual_labor_cost=s.get('actual_labor_cost', 0),
+                           estimated_overhead=s.get('estimated_overhead', 0),
+                           actual_overhead=s.get('actual_overhead', 0),
+                           estimated_hours=s.get('estimated_hours', 0),
+                           actual_hours=s.get('actual_hours', 0),
+                           time_optimistic=s.get('time_optimistic'),
+                           time_most_likely=s.get('time_most_likely'),
+                           time_pessimistic=s.get('time_pessimistic'),
+                           required_resource_type=s.get('required_resource_type'),
+                           storage_cost_per_day=s.get('storage_cost_per_day'))
+                db.session.add(st)
+        if 'images' in req:
+            Image.query.filter_by(assembly_id=obj.id, part_id=None).delete()
+            for img in req['images']:
+                im = Image(assembly_id=obj.id, url=img.get('url', ''), label=img.get('label', ''))
+                db.session.add(im)
     else:
-        for key in ['name', 'notes', 'partCode', 'specs', 'partType', 'status', 'supplier']:
-            if key in req:
-                setattr(obj, key, req[key])
+        part_fields = {
+            'name': 'name', 'notes': 'notes', 'partCode': 'part_code',
+            'specs': 'specs', 'partType': 'part_type', 'status': 'status',
+            'supplier': 'supplier',
+        }
+        for request_key, model_key in part_fields.items():
+            if request_key in req:
+                setattr(obj, model_key, req[request_key])
         if 'quantity' in req: obj.quantity = int(req['quantity'])
         if 'required_quantity' in req: obj.required_quantity = int(req['required_quantity'])
         # ── Phase 1: scheduling / uncertainty fields ──
@@ -348,7 +520,8 @@ def update_node(node_id):
                 db.session.add(im)
 
     db.session.commit()
-    return jsonify({'success': True, 'node': _build_node_dict(obj, typ)})
+    refreshed = load_data()['nodes'].get(node_id)
+    return jsonify({'success': True, 'node': refreshed or _build_node_dict(obj, typ)})
 
 @app.route('/api/node/<node_id>', methods=['PATCH'])
 @login_required
@@ -360,7 +533,7 @@ def quick_update_node(node_id):
     if 'name' in req:
         old_name = obj.name
         obj.name = req['name']
-    if typ == 'part':
+    if typ in ('part', 'assembly'):
         for key in ['quantity', 'required_quantity',
                      'time_optimistic', 'time_most_likely', 'time_pessimistic',
                      'cost_material', 'cost_labor', 'cost_overhead',
@@ -368,7 +541,8 @@ def quick_update_node(node_id):
             if key in req:
                 setattr(obj, key, req[key])
     db.session.commit()
-    return jsonify({'success': True, 'node': _build_node_dict(obj, typ)})
+    refreshed = load_data()['nodes'].get(node_id)
+    return jsonify({'success': True, 'node': refreshed or _build_node_dict(obj, typ)})
 
 @app.route('/api/node/<node_id>/move', methods=['POST'])
 @login_required
@@ -415,6 +589,9 @@ def delete_node(node_id):
                 delete_recursive(sub, 'assembly')
             for p in Part.query.filter_by(assembly_id=o.id).all():
                 delete_recursive(p, 'part')
+            Stage.query.filter_by(assembly_id=o.id).delete()
+            Image.query.filter_by(assembly_id=o.id).delete()
+            Document.query.filter_by(assembly_id=o.id).delete()
             db.session.delete(o)
         elif t == 'part':
             Stage.query.filter_by(part_id=o.id).delete()
@@ -451,16 +628,17 @@ def export_excel():
     if not product_id or product_id not in data['nodes']:
         return "محصول انتخاب نشده است", 400
     product = data['nodes'][product_id]
-    target_qty = max(product.get('order_count', 1), 1)
+    target_qty = _quantity_multiplier(product.get('order_count', 1))
     def get_real_status(node):
-        if node.get('type') == 'part':
-            required = node.get('required_quantity', 1)
-            total_req = required * target_qty
+        if node.get('type') in ('part', 'assembly'):
+            total_req = node.get('total_required')
+            if total_req is None:
+                total_req = _quantity_multiplier(node.get('required_quantity', 1)) * target_qty
             available = node.get('quantity', 0)
             if available >= total_req: return 'کافی'
             elif available > 0: return 'ناقص'
             else: return 'کسری'
-        return 'ندارد'
+        return node.get('hier_status', 'ندارد')
     wb = Workbook()
     wb.remove(wb.active)
     red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
@@ -482,7 +660,9 @@ def export_excel():
             nonlocal row_idx
             child_node = data['nodes'].get(nid)
             if not child_node: return
-            total_required = child_node.get('required_quantity', 1) * parent_req
+            total_required = child_node.get('total_required')
+            if total_required is None:
+                total_required = child_node.get('required_quantity', 1) * parent_req
             stages_str = " - ".join([s['name'] for s in child_node.get('stages', [])]) if child_node.get('stages') else "-"
             indent = "  " * level
             ws.cell(row=row_idx, column=1, value=indent + child_node['name'])
@@ -549,16 +729,17 @@ def export_schematic():
     if not product_id or product_id not in data['nodes']:
         return "محصول انتخاب نشده است", 400
     root_node = data['nodes'][product_id]
-    root_order_count = max(root_node.get('order_count', 1), 1)
+    root_order_count = _quantity_multiplier(root_node.get('order_count', 1))
     def get_real_status(node):
-        if node.get('type') == 'part':
-            required = node.get('required_quantity', 1)
-            total_req = required * root_order_count
+        if node.get('type') in ('part', 'assembly'):
+            total_req = node.get('total_required')
+            if total_req is None:
+                total_req = _quantity_multiplier(node.get('required_quantity', 1)) * root_order_count
             available = node.get('quantity', 0)
             if available >= total_req: return 'completed'
             elif available > 0: return 'in_progress'
             else: return 'not_started'
-        return node.get('status', 'not_started')
+        return node.get('hier_status', 'not_started')
     dot = graphviz.Digraph('ProductSchematic', format='pdf')
     dot.attr(rankdir='LR', size='30,30!', dpi='300', bgcolor='#FFFFFF')
     dot.attr('node', shape='plaintext', fontname='Tahoma')
@@ -587,7 +768,7 @@ def export_schematic():
                 color = get_stage_color(s)
                 stages_html += f'<TD BGCOLOR="{color}"><FONT COLOR="#FFFFFF" POINT-SIZE="10">{s["name"]}</FONT></TD>'
             stages_html += '</TR></TABLE></TD></TR>'
-        total_req_display = (node.get('required_quantity', 1) * root_order_count) if node.get('type') == 'part' else node.get('required_quantity', 1)
+        total_req_display = node.get('total_required') if node.get('type') in ('part', 'assembly') else node.get('required_quantity', 1)
         qty_info = f"موجودی: {node.get('quantity', 0)} | نیاز کل: {total_req_display}"
         stages_cost = node.get('stages', [])
         total_cost = sum(s.get('estimated_material_cost', 0) + s.get('estimated_labor_cost', 0) + s.get('estimated_overhead', 0) for s in stages_cost)
@@ -652,11 +833,26 @@ def create_schedule():
     return jsonify({'success': True, 'id': s.id})
 
 def _auto_work_orders(schedule):
-    for part in Part.query.filter(Part.assembly_id.in_(
-        db.session.query(Assembly.id).filter(Assembly.product_id == schedule.product_id)
-    )).all():
+    data = load_data()
+    product_id = schedule.product_id
+    for part in Part.query.all():
+        part_node_id = f'r{part.id}'
+        part_node = data['nodes'].get(part_node_id)
+        if not part_node:
+            continue
+        current = part_node
+        belongs_to_product = False
+        visited = set()
+        while current and current.get('id') not in visited:
+            visited.add(current.get('id'))
+            if current.get('type') == 'product':
+                belongs_to_product = current.get('id') == f'p{product_id}'
+                break
+            current = data['nodes'].get(current.get('parent')) if current.get('parent') else None
+        if not belongs_to_product:
+            continue
         wo = WorkOrder(schedule_id=schedule.id, part_id=part.id,
-                       quantity=part.required_quantity * schedule.quantity,
+                       quantity=_required_for_schedule(part_node_id, data, schedule.quantity),
                        status='pending', due_date=schedule.end_date)
         db.session.add(wo)
     db.session.commit()
@@ -821,12 +1017,48 @@ def delete_document(doc_id):
 
 # ───── Init ─────
 
+def _relax_stages_part_id_foreign_keys():
+    """بازسازی جدول stages در SQLite تا part_id اختیاری شود (پشتیبانی مراحل ماژول)."""
+    if db.engine.dialect.name != 'sqlite':
+        return
+    try:
+        with db.engine.connect() as conn:
+            rows = conn.exec_driver_sql('PRAGMA table_info(stages)').fetchall()
+            part_id = next((r for r in rows if r[1] == 'part_id'), None)
+            if part_id is None or part_id[3] != 1:
+                return
+            col_defs = []
+            for cid, name, ctype, notnull, dflt, pk in rows:
+                parts = [f'"{name}"', ctype]
+                if name != 'part_id' and notnull:
+                    parts.append('NOT NULL')
+                if dflt is not None:
+                    if isinstance(dflt, str) and not dflt.startswith("'"):
+                        dflt = "'" + dflt.replace("'", "''") + "'"
+                    parts.append(f'DEFAULT {dflt}')
+                if pk:
+                    parts.append('PRIMARY KEY')
+                col_defs.append(' '.join(parts))
+            conn.exec_driver_sql('PRAGMA foreign_keys=OFF')
+            conn.exec_driver_sql(f'CREATE TABLE stages_new ({", ".join(col_defs)})')
+            colnames = ', '.join(f'"{r[1]}"' for r in rows)
+            conn.exec_driver_sql(f'INSERT INTO stages_new ({colnames}) SELECT {colnames} FROM stages')
+            conn.exec_driver_sql('DROP TABLE stages')
+            conn.exec_driver_sql('ALTER TABLE stages_new RENAME TO stages')
+            conn.exec_driver_sql('PRAGMA foreign_keys=ON')
+            conn.commit()
+            print('[OK] stages.part_id made nullable (table rebuilt)')
+    except Exception as e:
+        print(f'[SKIP] stages rebuild: {e}')
+
 def init_db():
     with app.app_context():
         db.create_all()
         from sqlalchemy import inspect, text
         insp = inspect(db.engine)
         existing_tables = insp.get_table_names()
+        # ── ماژول: table rebuild تا stage هم بتواند به assembly متصل شود ──
+        _relax_stages_part_id_foreign_keys()
         if 'stages' in existing_tables:
             cols = [c['name'] for c in insp.get_columns('stages')]
             if 'manufacturer_id' not in cols:
@@ -845,6 +1077,28 @@ def init_db():
                     db.session.execute(text(f'ALTER TABLE stages ADD COLUMN {col_name} {col_type}'))
                     db.session.commit()
                     print(f'[OK] Added stages.{col_name} column')
+            # ── ماژول: اتصال مراحل ساخت به assembly ──
+            if 'assembly_id' not in cols:
+                db.session.execute(text('ALTER TABLE stages ADD COLUMN assembly_id INTEGER'))
+                db.session.commit()
+                print('[OK] Added stages.assembly_id column')
+        if 'assemblies' in existing_tables:
+            cols = [c['name'] for c in insp.get_columns('assemblies')]
+            for col_name, col_type, default in [
+                ('part_code', 'VARCHAR(100)', "''"),
+                ('quantity', 'INTEGER', 0),
+                ('required_quantity', 'INTEGER', 1),
+                ('part_type', 'VARCHAR(20)', "'make'"),
+                ('supplier', 'VARCHAR(200)', "''"),
+                ('supplier_email', 'VARCHAR(200)', "''"),
+                ('notes', 'TEXT', "''"),
+                ('status', 'VARCHAR(20)', "'not_started'"),
+                ('updated_at', 'DATETIME', 'NULL'),
+            ]:
+                if col_name not in cols:
+                    db.session.execute(text(f'ALTER TABLE assemblies ADD COLUMN {col_name} {col_type} DEFAULT {default}'))
+                    db.session.commit()
+                    print(f'[OK] Added assemblies.{col_name} column')
         if 'manufacturers' in existing_tables:
             cols = [c['name'] for c in insp.get_columns('manufacturers')]
             for col_name, col_type, default in [
