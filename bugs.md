@@ -2,11 +2,11 @@
 
 > Last code-audit update: **October 30, 2026** — branch: `dev/classic-restart`
 > Scope: all layers (data model, migrations, service/API, auth & authorization, frontend, templates/CSS, tests & tooling).
-> **Phase 0 (B1, B2, B3, B13, B7) is fixed and merged.** This file is the tracking document: when a fix starts, tick the checklist items under the bug and mark it Done.
+> **Phase 0 (B1, B2, B3, B13, B7) and the opened Phase 1 items (B4, B6, B8, B9, B10, B12) are fixed.** This file is the tracking document: when a fix starts, tick the checklist items under the bug and mark it Done.
 > Unrelated: [inventory-plan.md](inventory-plan.md)
 >
 > Audit method: every item was re-verified against the current code (file + line references) and by execution (8x... see "Status legend").
-> Test run 2026-10-30 (after Phase 0): **99 unit tests passed, 14/14 browser tests passed.**
+> Test run 2026-10-30 (after Phase 1 start): **116 unit tests passed, 14/14 browser tests passed.**
 
 ## Status legend
 
@@ -81,13 +81,14 @@ The password is saved in plaintext in the `settings` table and rendered into the
 
 ## 🟠 High
 
-### B4 — Open redirect on `/auth/login`
+### B4 — Open redirect on `/auth/login` — **Done (Phase 1)**
 `auth.py`: `next` is taken from `request.args` and used unvalidated for redirects (`redirect(next_page)`, `jsonify({'redirect': next_page})`).
 
 **Fix checklist:**
-- [ ] Validate with `url_has_allowed_host_and_scheme(next_page, request.host)` (relative paths only).
-- [ ] Fallback to `url_for('index')` when invalid.
-- [ ] Regression test for `next=https://evil.example` (JSON and form flows).
+- [x] Validate with `url_has_allowed_host_and_scheme(next_page, request.host)` (relative paths only).
+  - Implemented as `safe_next_url()`: an explicit parse that rejects any scheme/netloc and any path not starting with `/` (or starting with `//`), which is stricter than the host-allowlist helper and needs no `SERVER_NAME`.
+- [x] Fallback to `url_for('index')` when invalid.
+- [x] Regression test for `next=https://evil.example` (JSON and form flows), plus a relative-`next` case that must still work.
 
 ### B26 — Multiple stored-XSS injection points in frontend
 Names/strings injected into HTML unescaped:
@@ -104,31 +105,33 @@ Names/strings injected into HTML unescaped:
 - [ ] Sweep `script.js` for remaining bare template interpolations of user data; grep rule: no `${node.name}`-style without the helper.
 - [ ] Regression test: product named `<img src=x onerror=alert(1)>` must render as text in tree, kanban, notifications, breadcrumbs, gallery.
 
-### B8 — Create assembly without name ⇒ 500
+### B8 — Create assembly without name ⇒ 500 — **Done (Phase 1)**
 `api_v2.py` `create_assembly` uses `data['name']` directly (KeyError). Confirmed by execution: `POST /api/v2/assemblies {"product_id":41}` → `500`.
 
 **Fix checklist:**
-- [ ] Validate name like `_definition_payload` does (nonempty string, reasonable length) → 400.
-- [ ] Same for the classic `/api/node` path if applicable (it already defaults, but enforce nonempty for v1 parity).
+- [x] Validate name like `_definition_payload` does (nonempty string, reasonable length) → 400. (Applied to create *and* update.)
+- [x] Same for the classic `/api/node` path if applicable (it already defaults, but enforce nonempty for v1 parity).
+  - Classic now normalizes a missing/blank name to `بدون نام` before fields are applied, so whitespace can no longer be stored as a name.
 
-### B9 — Production schedule creation without validation
+### B9 — Production schedule creation without validation — **Done (Phase 1)**
 Classic (`app.py create_schedule`) and v2 (`api_v2.py create_schedule`):
 - Missing JSON body ⇒ 415 as an HTML error page (frontend expects JSON → B20).
 - Nonexistent `product_id` or a bad/missing date ⇒ 500 (KeyError / `fromisoformat` ValueError).
 - Negative `quantity` is accepted and saved (confirmed by execution: `WorkOrder` with `quantity: -20`).
 
 **Fix checklist:**
-- [ ] One shared payload validator for both routes: product exists, dates parse-or-null, `quantity` >= 1 (integer), `status/priority` from an allowed set.
-- [ ] Return JSON errors with 400 always (`request.get_json(silent=True)` + explicit checks).
-- [ ] Regression tests: no body, unknown product, bad date, negative quantity.
+- [x] One shared payload validator for both routes: product exists, dates parse-or-null, `quantity` >= 1 (integer), `status/priority` from an allowed set. (`schedule_service.validate_schedule_payload`)
+- [x] Return JSON errors with 400 always (`request.get_json(silent=True)` + explicit checks).
+- [x] Regression tests: no body, unknown product, bad date, negative quantity, zero, float quantity, bad status/priority.
 
-### B10 — Wrong work-order quantity for nested BOMs
+### B10 — Wrong work-order quantity for nested BOMs — **Done (Phase 1)**
 `_auto_work_orders` (classic) and `_auto_generate_work_orders` (v2) compute `part.required_quantity * schedule.quantity`, ignoring intermediate assembly multipliers. Confirmed by execution (expected −120, got −20 for a 4×3×2×5 chain).
 
 **Fix checklist:**
-- [ ] Compute per-part `required_total` from the existing BOM calculation (`load_data()` already resolves nested multipliers correctly) instead of the direct product.
-- [ ] Add a unit test reproducing the 4×3×2×5 case.
-- [ ] Keep the formula single-source: reuse the same helper in both classic and v2 routes.
+- [x] Compute per-part `required_total` from the existing BOM calculation (`load_data()` already resolves nested multipliers correctly) instead of the direct product.
+- [x] Add a unit test reproducing the 4×3×2×5 case.
+- [x] Keep the formula single-source: reuse the same helper in both classic and v2 routes. (`schedule_service.part_requirement_totals`, used by `generate_work_orders`)
+  - Note: the previous v2 test asserted the buggy `7×9=63`; it now expects `3×2×7×9=378`.
 
 ### B11 — Work orders never refresh when a schedule changes
 `update_schedule` can change `quantity` (v2), but previously generated work orders keep the old value. Confirmed by execution.
@@ -199,12 +202,12 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Restrict CORS to same-origin (drop global `CORS()` or configure exact origins) — the app is same-origin today.
 - [ ] Optionally add origin verification on POST for the classic mutating routes (cheap CSRF strategy for a JSON API).
 
-### B12 — `PUT` schedule with `null` date ⇒ 500
+### B12 — `PUT` schedule with `null` date ⇒ 500 — **Done (Phase 1)**
 `api_v2.py update_schedule`: `datetime.fromisoformat(data['start_date'])` with `None` in payload. Confirmed by execution → 500.
 
 **Fix checklist:**
-- [ ] `if data['start_date'] in (None, ''): schedule.start_date = None else: parse` (same for end_date) — also apply to the classic route for parity.
-- [ ] Regression test included with B9's schedule test class.
+- [x] `if data['start_date'] in (None, ''): schedule.start_date = None else: parse` (same for end_date) — also apply to the classic route for parity. (Shared `validate_schedule_payload(..., partial=True)`; the classic module has no schedule-update route, so there is nothing else to align.)
+- [x] Regression test included with B9's schedule test class.
 
 ### B14 — Product documents: no per-product attribution (Corrected)
 `upload_document` for a `product` stores `part_id=None, assembly_id=None`; `list_documents` filters on exactly that. So product documents *are* listed — but for **every** product (both-None filter matches all product docs), and no record points back to the owning product. Original text had the direction inverted.
@@ -333,12 +336,12 @@ No tests for: `/api/schedules`, work orders, excel/schematic exports, documents,
 
 ## 🟢 Low
 
-### B6 — Fragile `load_user`
+### B6 — Fragile `load_user` — **Done (Phase 1)**
 `db.session.get(User, int(user_id))` raises `ValueError` on a non-integer session id → 500 per request instead of a clean signed-out state. (With a known SECRET_KEY a forged session becomes reachable — same root cause as B7.)
 
 **Fix checklist:**
-- [ ] Guard: try/except int conversion → return None (signed-out) on any non-integer.
-- [ ] Quick unit test for a tampered session id.
+- [x] Guard: try/except int conversion → return None (signed-out) on any non-integer.
+- [x] Quick unit test for a tampered session id (`not-a-number`, unknown id, `1.5`).
 
 ### B33 — Dashboard counts unreachable nodes
 `updateDashboard` counts all nodes from the server payload, including cycle/orphan nodes that don't render in the tree. Executed-verified: a self-cycle (`a51.parent_id = a51`) came back with status 200 and the node disappeared from the tree but stayed in stats.
@@ -396,6 +399,6 @@ The original claim was: the browser dark-mode test read computed styles while a 
 ## Suggested fix order (phases)
 
 1. **Phase 0 — security, smallest diffs (done):** B1 → B3 → B2 → B13 → B7 (each 1–3 touchpoints; B2 needs the shared decorator first).
-2. **Phase 1 — data correctness:** B8, B9, B12, B10, B11, B15, B16, B14, B23, B22, B21, B24.
+2. **Phase 1 — data correctness:** ~~B8~~, ~~B9~~, ~~B12~~, ~~B10~~ (done), then B11, B15, B16, B14, B23, B22, B21, B24. Security continuations B4/B6 are also done.
 3. **Phase 2 — UX and frontend correctness:** B26, B27, B28, B29, B30, B31, B34 (B20, B5 ride along here).
 4. **Phase 3 — quality/performance/grinding:** B19, B18, B32, B38, B39, B40, B25, B6, B33, B35, B36, B42 (tests last, once phases 1–2 stabilize the routes).

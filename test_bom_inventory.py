@@ -402,7 +402,8 @@ def test_v2_inventory_writes_and_schedule_preservation(client):
     assert response.json['data']['quantity'] == 9
     assert client.get('/api/data').json == before
     orders = client.get('/api/v2/work-orders').json['data']
-    assert len(orders) == 1 and orders[0]['quantity'] == 63
+    # B10: nested multipliers count, so 3 (assembly) × 2 (nested) × 7 (part) × 9 units.
+    assert len(orders) == 1 and orders[0]['quantity'] == 378
     assert client.get('/api/schedules').json['data'][0]['quantity'] == 9
 
 

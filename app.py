@@ -25,6 +25,8 @@ from bom_calculation import attach_calculations, validate_quantities
 from bom_inventory_migration import ensure_inventory_schema
 from manufacturer_migration import ensure_manufacturer_schema
 from manufacturer_service import validate_ids, replace_stage_manufacturers, stage_manufacturers
+from schedule_service import (ScheduleValidationError, generate_work_orders,
+                              validate_schedule_payload)
 from werkzeug.exceptions import Forbidden
 
 ensure_production_secret()
@@ -62,7 +64,12 @@ login_manager.login_message = 'لطفاً ابتدا وارد سیستم شوی�
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    # A tampered session id must sign the visitor out, not raise a 500.
+    try:
+        identifier = int(user_id)
+    except (TypeError, ValueError):
+        return None
+    return db.session.get(User, identifier)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(api_bp)
@@ -382,7 +389,7 @@ def create_node():
     typ = req.get('type', 'assembly')
     if typ not in ('product', 'assembly', 'part'):
         return jsonify({'error': 'Invalid node type'}), 400
-    name = req.get('name', 'بدون نام')
+    name = str(req.get('name') or '').strip() or 'بدون نام'
     parent_obj, parent_typ = _resolve_node(req.get('parent'))
     if typ == 'product':
         if req.get('parent') not in (None, '#', ''):
@@ -400,7 +407,7 @@ def create_node():
         obj = Part(assembly_id=parent_obj.id, name=name, quantity=0, required_quantity=1,
                    part_type='make', status='not_started')
     try:
-        _apply_node_fields(obj, typ, req)
+        _apply_node_fields(obj, typ, dict(req, name=name))
     except Forbidden as error:
         db.session.rollback()
         return jsonify({'error': error.description}), 403
@@ -713,31 +720,17 @@ def list_schedules():
 @app.route('/api/schedules', methods=['POST'])
 @role_required('admin', 'engineer')
 def create_schedule():
-    data = request.json
-    s = ProductionSchedule(
-        product_id=data['product_id'],
-        quantity=data.get('quantity', 1),
-        status=data.get('status', 'planned'),
-        priority=data.get('priority', 'normal'),
-        start_date=datetime.fromisoformat(data['start_date']) if data.get('start_date') else None,
-        end_date=datetime.fromisoformat(data['end_date']) if data.get('end_date') else None,
-        notes=data.get('notes', ''),
-        created_by=current_user.id
-    )
+    try:
+        payload = validate_schedule_payload(request.get_json(silent=True))
+    except ScheduleValidationError as error:
+        return jsonify({'error': str(error)}), 400
+    s = ProductionSchedule(status=payload.pop('status', 'planned'),
+                           priority=payload.pop('priority', 'normal'),
+                           **payload, created_by=current_user.id)
     db.session.add(s)
     db.session.commit()
-    _auto_work_orders(s)
+    generate_work_orders(s)
     return jsonify({'success': True, 'id': s.id})
-
-def _auto_work_orders(schedule):
-    for part in Part.query.filter(Part.assembly_id.in_(
-        db.session.query(Assembly.id).filter(Assembly.product_id == schedule.product_id)
-    )).all():
-        wo = WorkOrder(schedule_id=schedule.id, part_id=part.id,
-                       quantity=part.required_quantity * schedule.quantity,
-                       status='pending', due_date=schedule.end_date)
-        db.session.add(wo)
-    db.session.commit()
 
 # ───── Settings ─────
 

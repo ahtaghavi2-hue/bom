@@ -1,8 +1,22 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
+from urllib.parse import urlparse
+from datetime import datetime
+
 from extensions import db
 from models import User
-from datetime import datetime
+
+
+def safe_next_url(candidate):
+    """Only same-origin, path-only redirects are allowed (no open redirect)."""
+    if not candidate or not isinstance(candidate, str):
+        return None
+    parsed = urlparse(candidate)
+    if parsed.scheme or parsed.netloc:
+        return None
+    if not parsed.path.startswith('/') or parsed.path.startswith('//'):
+        return None
+    return candidate
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -30,7 +44,7 @@ def login():
     login_user(user, remember=remember)
     user.last_login = datetime.utcnow()
     db.session.commit()
-    next_page = request.args.get('next') or url_for('index')
+    next_page = safe_next_url(request.args.get('next')) or url_for('index')
     if request.is_json:
         return jsonify({'success': True, 'redirect': next_page})
     return redirect(next_page)

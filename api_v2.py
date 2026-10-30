@@ -8,6 +8,8 @@ from models import Category, Tag, StageManufacturer
 from manufacturer_service import (json_object, validate_ids, validate_manufacturer, apply_manufacturer,
     replace_stage_manufacturers, stage_manufacturers, manufacturer_usage, filter_manufacturers,
     manufacturer_workbook)
+from schedule_service import (ScheduleValidationError, generate_work_orders,
+    validate_schedule_payload)
 from datetime import datetime
 import os
 import uuid
@@ -118,6 +120,8 @@ def list_assemblies(product_id):
 @admin_required
 def create_assembly():
     data = _inventory_data(('quantity', 'required_quantity'))
+    if not isinstance(data.get('name'), str) or not data['name'].strip():
+        return jsonify({'error': 'Invalid assembly name'}), 400
     product = db.session.get(Product, data.get('product_id'))
     parent = db.session.get(Assembly, data['parent_id']) if data.get('parent_id') is not None else None
     if not product or (data.get('parent_id') is not None and (not parent or parent.product_id != product.id)):
@@ -140,6 +144,8 @@ def create_assembly():
 def update_assembly(assembly_id):
     assembly = Assembly.query.get_or_404(assembly_id)
     data = _inventory_data(('quantity', 'required_quantity'))
+    if 'name' in data and (not isinstance(data['name'], str) or not data['name'].strip()):
+        return jsonify({'error': 'Invalid assembly name'}), 400
     for key in ('name', 'description', 'sort_order', 'quantity', 'required_quantity'):
         if key in data:
             setattr(assembly, key, data[key])
@@ -273,33 +279,29 @@ def list_schedules():
 @api_bp.route('/schedules', methods=['POST'])
 @admin_required
 def create_schedule():
-    data = request.get_json()
-    schedule = ProductionSchedule(
-        product_id=data['product_id'],
-        quantity=data.get('quantity', 1),
-        start_date=datetime.fromisoformat(data['start_date']) if data.get('start_date') else None,
-        end_date=datetime.fromisoformat(data['end_date']) if data.get('end_date') else None,
-        priority=data.get('priority', 'normal'),
-        notes=data.get('notes', ''),
-        created_by=current_user.id
-    )
+    try:
+        payload = validate_schedule_payload(request.get_json(silent=True))
+    except ScheduleValidationError as error:
+        return jsonify({'error': str(error)}), 400
+    schedule = ProductionSchedule(status=payload.pop('status', 'planned'),
+                                  priority=payload.pop('priority', 'normal'),
+                                  **payload, created_by=current_user.id)
     db.session.add(schedule)
     db.session.commit()
-    _auto_generate_work_orders(schedule)
+    generate_work_orders(schedule)
     return jsonify({'success': True, 'data': schedule.to_dict()}), 201
 
 @api_bp.route('/schedules/<int:schedule_id>', methods=['PUT'])
 @admin_required
 def update_schedule(schedule_id):
     schedule = ProductionSchedule.query.get_or_404(schedule_id)
-    data = request.get_json()
-    for key in ('quantity', 'status', 'priority', 'notes'):
-        if key in data:
-            setattr(schedule, key, data[key])
-    if 'start_date' in data:
-        schedule.start_date = datetime.fromisoformat(data['start_date'])
-    if 'end_date' in data:
-        schedule.end_date = datetime.fromisoformat(data['end_date'])
+    try:
+        data = validate_schedule_payload(request.get_json(silent=True), partial=True)
+    except ScheduleValidationError as error:
+        return jsonify({'error': str(error)}), 400
+    data.pop('product_id', None)
+    for key, value in data.items():
+        setattr(schedule, key, value)
     db.session.commit()
     return jsonify({'success': True, 'data': schedule.to_dict()})
 
@@ -586,27 +588,6 @@ def delete_stage_detail(detail_id):
     return jsonify({'success': True, 'message': 'جزئیات مرحله حذف شد'})
 
 # ───── Helpers ─────
-
-def _auto_generate_work_orders(schedule):
-    assemblies = Assembly.query.filter_by(product_id=schedule.product_id, parent_id=None).all()
-    def collect_parts(assembly):
-        parts = []
-        for p in assembly.parts.all():
-            parts.append(p)
-        for sub in assembly.children:
-            parts.extend(collect_parts(sub))
-        return parts
-    for assembly in assemblies:
-        for part in collect_parts(assembly):
-            wo = WorkOrder(
-                schedule_id=schedule.id,
-                part_id=part.id,
-                quantity=part.required_quantity * schedule.quantity,
-                status='pending',
-                due_date=schedule.end_date
-            )
-            db.session.add(wo)
-    db.session.commit()
 
 # ───── Model serialization helpers ─────
 
