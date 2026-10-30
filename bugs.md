@@ -17,6 +17,14 @@
 
 Items are ordered by severity: **Critical → High → Medium → Low**, with the ID kept for traceability.
 
+Each completed item carries a **Work log** list: what was actually changed, plus anything done beyond the checklist (test-fixture repairs, docs, behaviour fixes found while testing).
+
+## Work log — phases 0 and 1
+
+- `013edc8` — phase 0: B1, B2, B3, B13, B7 (new `permissions.py`, 19-test `test_phase0_security.py`).
+- `341650a` — phase 1 (opened items): B4, B6, B8, B9, B10, B12 (new `schedule_service.py`, 17-test `test_phase1_fixes.py`).
+- Cross-cutting, not tied to a single bug: two legacy fixtures were signing in as nobody and are now real sessions; a flask-login per-app-context cache leak between test clients was fixed in the tests; README security/roles/test sections rewritten; `templates/settings.html` had CRLF/no-newline damage from earlier edits and was normalized.
+
 ## 🔴 Critical
 
 ### B1 — Disabled accounts can still log in — **Done (Phase 0)**
@@ -27,6 +35,12 @@ The real login entry point `app.py` (`/login`, `login_page`) never checks `is_ac
 - [x] Reject with the same error message/HTTP shape as `auth.login` (403 for JSON, flash+redirect otherwise).
 - [x] Add a regression test: disabled user login must fail on `/login` (`test_phase0_security.py`).
 - [x] Check any other auth entry points (none currently known) for the same gap. (`/auth/login` already checked it; those are the only two.)
+
+**Work log:**
+- `login_page` now returns `403 {"success": false, "message": "حساب کاربری غیرفعال است"}` for JSON and flash + redirect to the form for browsers, mirroring `auth.login`.
+- Two tests: form flow with `follow_redirects` (message shown, no `_user_id` in the session) and a JSON-shape test; an active user still logs in.
+- Beyond the checklist: the form path needed `flash` + redirect rather than a re-rendered template, because the login page only surfaces flashed messages; the regression test follows the redirect to prove the message is visible.
+- Observed but deliberately not changed (out of scope): the wrong-password branch of the same view still passes `error=...` to a template that only reads flashed messages, so that error is invisible today — a UX fix for the auth-error family (B20).
 
 ### B2 — Role checks only exist in API v2 — **Done (Phase 0)**
 `admin_required` is defined only in `api_v2.py`. All classic `/api/*` mutation routes carry only `login_required`:
@@ -46,6 +60,11 @@ A `viewer` can therefore delete the whole BOM or rewrite SMTP settings through t
 - [x] Regression tests for each role × route class (viewer must get 403).
   - Note: `test_manufacturers.py` previously asserted that viewers may rewrite node/stage data through the classic API; that assertion encoded the bug, so it now expects 403 and verifies the same legacy payloads still succeed for an engineer.
 
+**Work log:**
+- New `permissions.py` with `role_required(*roles)`; it reads `getattr(current_user, 'role', None)` so an `AnonymousUser` (test/`LOGIN_DISABLED` setups) yields 403 instead of `AttributeError`.
+- Applied to: node create/update/move/delete, `/api/upload`, document upload and delete, `/api/schedules` create (already), `/api/settings/save`; `/settings` POST additionally refuses non-admins with a flash.
+- Beyond the checklist: `test_bom_inventory.py` had been running all classic writes with `LOGIN_DISABLED=True` and no user, which is exactly why the hole went unnoticed — it now seeds an admin and signs in like production. During that work a flask-login `g._login_user` cache leak between test clients (they share one app context) was found and fixed in `test_phase0_security.py`, otherwise a second client silently inherited the first client's role.
+
 ### B3 — SMTP password stored and rendered in the clear — **Done (Phase 0)**
 The password is saved in plaintext in the `settings` table and rendered into the page by `templates/settings.html` (`value="{{ settings.mail_password }}"` in a password-input — the value is still readable from the DOM/source). Any logged-in user, including `viewer`, can read or overwrite it.
 
@@ -53,7 +72,12 @@ The password is saved in plaintext in the `settings` table and rendered into the
 - [x] Never pass the password value to the template; render only a "set / not set" indicator.
 - [x] Split settings page: viewing vs saving SMTP credentials restricted to admin (depends on B2).
 - [x] Ensure `autoSaveSetting('mail_password', ...)` only writes when a new password is actually typed (empty = keep old).
-- [ ] Later: store secrets outside the DB (env/secret store) — tracked as B3b, still plaintext in the `settings` table.
+- [ ] Later: store secrets outside the DB (env/secret store) — still open (not filed as its own ID); the value remains plaintext in the `settings` table.
+
+**Work log:**
+- The settings view no longer passes `mail_password` to the template at all; the field renders empty with a keep-current placeholder and a `✓ ذخیره شده / ثبت نشده` indicator.
+- Empty or whitespace-only password keeps the stored value on both `/settings` (form) and `/api/settings/save` (JSON).
+- Beyond the checklist: `templates/settings.html` carried CRLF/joined-line damage from earlier edits and was normalized to clean LF while adding the indicator.
 
 ### B13 — Uploads without type/size limits (Corrected) — **Done (Phase 0)**
 `/api/upload` accepts any extension with no size limit; files are served back from `/uploads`.
@@ -68,6 +92,11 @@ The password is saved in plaintext in the `settings` table and rendered into the
 - [x] For non-image types serve with `Content-Disposition: attachment` + `X-Content-Type-Options: nosniff`; HTML/SVG are not accepted at all.
 - [x] Regression test: `.html` upload refused; oversized refused; anonymous `/uploads` request redirected to login (302, not 401 — redirect is what `login_required` gives a browser).
 
+**Work log:**
+- `_IMAGE_EXTENSIONS` allowlist for `/api/upload`, extension lowercased so `.PNG`/`.JPG` still pass; 10 MB image and 25 MB document caps returning `413`.
+- `/uploads/<path:filename>` is now `login_required`; non-image responses get `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
+- Beyond the checklist: documents keep their existing `type_map` (CAD/archive/office) but HTML/SVG/JS/EXE are refused; tests verify both the allowlist and the real download headers, not just status codes.
+
 ### B7 — Hardcoded default SECRET_KEY and default admin admin123 — **Done (Phase 0)**
 `config.py` falls back to a hardcoded `SECRET_KEY` default; `app.py:init_db` creates admin with `admin123`. Together with forged-session risk (also see B6), this is production-fatal.
 
@@ -76,6 +105,12 @@ The password is saved in plaintext in the `settings` table and rendered into the
 - [x] First-run admin gets a random password printed once to the console (or a provisioning path) and is forced to change it.
   - Partially done: the random password is printed once; *forcing* a change on first login is still open (tracked with the auth hardening work).
 - [x] Document both in README (also covered by B42).
+
+**Work log:**
+- `ensure_production_secret()` lives in `config.py` and is called at the top of `app.py`, so every entry point (not just `python app.py`) fails fast when `FLASK_ENV=production` and `SECRET_KEY` is missing.
+- `init_db` creates the first admin with `secrets.token_urlsafe(12)` and prints it once, labelled as one-time.
+- README no longer advertises `admin/admin123`; it documents the printed password and the production secret requirement.
+- Beyond the checklist: the random password is printed but not *forced* to change on first login — left open deliberately and cross-referenced to the auth hardening work.
 
 ---
 
@@ -89,6 +124,11 @@ The password is saved in plaintext in the `settings` table and rendered into the
   - Implemented as `safe_next_url()`: an explicit parse that rejects any scheme/netloc and any path not starting with `/` (or starting with `//`), which is stricter than the host-allowlist helper and needs no `SERVER_NAME`.
 - [x] Fallback to `url_for('index')` when invalid.
 - [x] Regression test for `next=https://evil.example` (JSON and form flows), plus a relative-`next` case that must still work.
+
+**Work log:**
+- `safe_next_url()` rejects non-strings, absolute URLs, protocol-relative `//host`, and any path not starting with `/`; valid relative paths keep their query string.
+- Both the JSON `redirect` value and the form `Location` header go through it, falling back to `url_for('index')`.
+- Beyond the checklist: `app.py`'s own `/login` never read `next` (always `index`), so it needed no change — recorded here so a future reader does not assume it was overlooked.
 
 ### B26 — Multiple stored-XSS injection points in frontend
 Names/strings injected into HTML unescaped:
@@ -113,6 +153,10 @@ Names/strings injected into HTML unescaped:
 - [x] Same for the classic `/api/node` path if applicable (it already defaults, but enforce nonempty for v1 parity).
   - Classic now normalizes a missing/blank name to `بدون نام` before fields are applied, so whitespace can no longer be stored as a name.
 
+**Work log:**
+- v2 `create_assembly` and `update_assembly` reject a missing, non-string or whitespace name with `400 Invalid assembly name`.
+- Beyond the checklist: the first attempt at the classic fix looked correct but tests proved the name was overwritten again by `_apply_node_fields`, which copies `req['name']` onto the object; the create path now passes a normalized copy (`dict(req, name=name)`), so the default actually sticks.
+
 ### B9 — Production schedule creation without validation — **Done (Phase 1)**
 Classic (`app.py create_schedule`) and v2 (`api_v2.py create_schedule`):
 - Missing JSON body ⇒ 415 as an HTML error page (frontend expects JSON → B20).
@@ -124,6 +168,11 @@ Classic (`app.py create_schedule`) and v2 (`api_v2.py create_schedule`):
 - [x] Return JSON errors with 400 always (`request.get_json(silent=True)` + explicit checks).
 - [x] Regression tests: no body, unknown product, bad date, negative quantity, zero, float quantity, bad status/priority.
 
+**Work log:**
+- One validator (`schedule_service.validate_schedule_payload`) is used by the classic and v2 routes; it checks product existence, integer quantity ≥ 1, ISO-or-null dates, and status/priority against fixed tuples.
+- Both routes now use `get_json(silent=True)` and always answer `400` with a JSON `error`, so a missing body is no longer a `415` HTML page.
+- Beyond the checklist: the duplicated `_auto_work_orders` (classic) and `_auto_generate_work_orders` (v2) helpers were deleted in favour of one shared generator, which is what made the B10 fix single-source.
+
 ### B10 — Wrong work-order quantity for nested BOMs — **Done (Phase 1)**
 `_auto_work_orders` (classic) and `_auto_generate_work_orders` (v2) compute `part.required_quantity * schedule.quantity`, ignoring intermediate assembly multipliers. Confirmed by execution (expected −120, got −20 for a 4×3×2×5 chain).
 
@@ -132,6 +181,10 @@ Classic (`app.py create_schedule`) and v2 (`api_v2.py create_schedule`):
 - [x] Add a unit test reproducing the 4×3×2×5 case.
 - [x] Keep the formula single-source: reuse the same helper in both classic and v2 routes. (`schedule_service.part_requirement_totals`, used by `generate_work_orders`)
   - Note: the previous v2 test asserted the buggy `7×9=63`; it now expects `3×2×7×9=378`.
+
+**Work log:**
+- `schedule_service.part_requirement_totals()` walks the assembly tree once, multiplying every level; `generate_work_orders()` writes one pending order per part for both routes.
+- Beyond the checklist: writing the test exposed a second mistake in the first implementation — the product→root-assembly edge was multiplied by 1, giving 30 instead of 120. The root coefficient is now applied, and the parametrized test covers the 4×3×2×5 chain on both endpoints.
 
 ### B11 — Work orders never refresh when a schedule changes
 `update_schedule` can change `quantity` (v2), but previously generated work orders keep the old value. Confirmed by execution.
@@ -208,6 +261,10 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 **Fix checklist:**
 - [x] `if data['start_date'] in (None, ''): schedule.start_date = None else: parse` (same for end_date) — also apply to the classic route for parity. (Shared `validate_schedule_payload(..., partial=True)`; the classic module has no schedule-update route, so there is nothing else to align.)
 - [x] Regression test included with B9's schedule test class.
+
+**Work log:**
+- `validate_schedule_payload(..., partial=True)` parses only the supplied fields, so `null`/`''` clear a date instead of raising, and invalid dates or quantities return `400`.
+- Beyond the checklist: `product_id` is ignored on update (a schedule cannot be moved to another product through PUT), and `status`/`priority` are validated on update as well as create, not just on create.
 
 ### B14 — Product documents: no per-product attribution (Corrected)
 `upload_document` for a `product` stores `part_id=None, assembly_id=None`; `list_documents` filters on exactly that. So product documents *are* listed — but for **every** product (both-None filter matches all product docs), and no record points back to the owning product. Original text had the direction inverted.
@@ -342,6 +399,11 @@ No tests for: `/api/schedules`, work orders, excel/schematic exports, documents,
 **Fix checklist:**
 - [x] Guard: try/except int conversion → return None (signed-out) on any non-integer.
 - [x] Quick unit test for a tampered session id (`not-a-number`, unknown id, `1.5`).
+
+**Work log:**
+- `load_user` converts inside `try/except (TypeError, ValueError)` and returns `None`, so the request is treated as signed out and redirects to login instead of returning 500.
+- Three parametrized tests cover non-numeric, fractional and non-existent ids.
+- Beyond the checklist: this closes the 500-per-request path that a forged or garbage session id could trigger even after B7, and it is the guard B7's `SECRET_KEY` requirement needed to fail safely.
 
 ### B33 — Dashboard counts unreachable nodes
 `updateDashboard` counts all nodes from the server payload, including cycle/orphan nodes that don't render in the tree. Executed-verified: a self-cycle (`a51.parent_id = a51`) came back with status 200 and the node disappeared from the tree but stayed in stats.
