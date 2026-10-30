@@ -19,7 +19,22 @@ Items are ordered by severity: **Critical → High → Medium → Low**, with th
 
 Each completed item carries a **Work log** list: what was actually changed, plus anything done beyond the checklist (test-fixture repairs, docs, behaviour fixes found while testing).
 
-## Work log — phases 0 and 1
+### Work log template (open items)
+
+Open items end with an empty `**Work log:**` placeholder. When a fix lands, replace it with these three bullets and keep the wording short:
+
+```markdown
+**Work log:**
+- **Changed:** files/routes/helpers actually touched (paths + function names, not a diff summary).
+- **Beyond checklist:** anything needed to make the fix real and verifiable — test-fixture repairs,
+  docs/README updates, neighbouring behaviour found while testing, follow-up items opened.
+- **Left open:** whatever was deliberately deferred, with the bug ID or area it belongs to.
+  Write "none" when the checklist is fully closed.
+```
+
+A finished item must say *how it was verified* somewhere in those bullets (test file name, or the manual/HTTP check performed).
+
+## Completed work log — phases 0 and 1
 
 - `013edc8` — phase 0: B1, B2, B3, B13, B7 (new `permissions.py`, 19-test `test_phase0_security.py`).
 - `341650a` — phase 1 (opened items): B4, B6, B8, B9, B10, B12 (new `schedule_service.py`, 17-test `test_phase1_fixes.py`).
@@ -145,6 +160,8 @@ Names/strings injected into HTML unescaped:
 - [ ] Sweep `script.js` for remaining bare template interpolations of user data; grep rule: no `${node.name}`-style without the helper.
 - [ ] Regression test: product named `<img src=x onerror=alert(1)>` must render as text in tree, kanban, notifications, breadcrumbs, gallery.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B8 — Create assembly without name ⇒ 500 — **Done (Phase 1)**
 `api_v2.py` `create_assembly` uses `data['name']` directly (KeyError). Confirmed by execution: `POST /api/v2/assemblies {"product_id":41}` → `500`.
 
@@ -194,6 +211,8 @@ Classic (`app.py create_schedule`) and v2 (`api_v2.py create_schedule`):
 - [ ] Never touch started/completed orders; log the adjustment in `notes`.
 - [ ] Regression test: change schedule 20→50 → pending WOs follow.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B28 — Part type never saved from UI
 `#field-partType` does not exist in any template, but `script.js` reads it (`payload.partType = $('#field-partType').val()`) and writes it on open. Result: `partType: undefined` is dropped from the payload → `part_type` is never set through the classic UI.
 
@@ -201,6 +220,8 @@ Classic (`app.py create_schedule`) and v2 (`api_v2.py create_schedule`):
 - [ ] Add the `partType` select (buy/make) to the inventory tab, shown for parts only.
 - [ ] Wire it to autosave like other fields.
 - [ ] Regression test: change type in UI → reload → value persists.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B27 — "Production schedule" tab is effectively dead
 In `templates/index.html` the tab button is `hidden` with `display:none !important`, and `script.js` (`showEditForm`) always hides it as well. `loadSchedulesForProduct` is only called after creating a schedule. Scheduling is unreachable from the UI.
@@ -210,6 +231,8 @@ In `templates/index.html` the tab button is `hidden` with `display:none !importa
 - [ ] If restored: unhide for product nodes and fix the call chain (load on product select).
 - [ ] Document the decision in the UI plan.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B22 — No uniqueness / hard delete
 `Product.code` and `Part.part_code` lack `unique` and search indexes; deletion is hard delete (history lost). This will bite the inventory plan (shared items, barcodes).
 
@@ -218,6 +241,8 @@ In `templates/index.html` the tab button is `hidden` with `display:none !importa
 - [ ] Return a clean 409 on duplicate insert/update in v2 endpoints.
 - [ ] Soft-archive decision: deferred to inventory plan (archived flag) — do not invent a parallel scheme here.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B21 — `to_dict` monkey-patched onto models at import time
 `api_v2.py` (`_add_to_dict_methods`) attaches `to_dict` to `Product/Assembly/Part/Stage/...` when `api_v2` is imported. Any consumer of the models without importing `api_v2` (migrations scripts, future code) gets `AttributeError`. `Stage.to_dict` also triggers per-stage manufacturer queries (N+1).
 
@@ -225,6 +250,8 @@ In `templates/index.html` the tab button is `hidden` with `display:none !importa
 - [ ] Move `to_dict` definitions into `models.py` as real methods.
 - [ ] For `Stage.to_dict`, accept preloaded manufacturer links or make it opt-in (`to_dict(with_links=False)` default).
 - [ ] Remove `_add_to_dict_methods` and the import-time side effect.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B23 — `migrate_data.py` migrates data incompletely
 Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are skipped entirely; stage costs, assembly images and assembly `required_quantity` are not migrated; and there is no rollback.
@@ -235,6 +262,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Wrap in a transaction (single commit at end) and delete `bom_data.json` marker / backup DB before starting, with a `--dry-run` mode.
 - [ ] Test against a fixture JSON containing nested assemblies.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B24 — Schema migrations locked per process only
 `RLock` in `bom_inventory_migration.py` / `manufacturer_migration.py` is process-local; with multiple workers there is a `duplicate column` race. Manufacturer backups land inside the repository (`backups/`); inventory backups land next to the DB file.
 
@@ -242,6 +271,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Align on SQLite-level safety: wrap DDL in a transaction with `BEGIN IMMEDIATE` (SQLite serializes writers) or use a file lock (e.g. `msvcrt`/`fcntl` or a lockfile with timeout).
 - [ ] Exclude `backups/` and `instance/` from git (check .gitignore; move runtime backups out of the repo tree).
 - [ ] Test with two concurrent processes against one file DB.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ---
 
@@ -254,6 +285,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Set `SESSION_COOKIE_SAMESITE = 'Lax'` (or `'Strict'`) and `SESSION_COOKIE_SECURE` in production config.
 - [ ] Restrict CORS to same-origin (drop global `CORS()` or configure exact origins) — the app is same-origin today.
 - [ ] Optionally add origin verification on POST for the classic mutating routes (cheap CSRF strategy for a JSON API).
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B12 — `PUT` schedule with `null` date ⇒ 500 — **Done (Phase 1)**
 `api_v2.py update_schedule`: `datetime.fromisoformat(data['start_date'])` with `None` in payload. Confirmed by execution → 500.
@@ -274,6 +307,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Migrate existing both-NULL docs (they are indistinguishable today — mark as unassigned and surface in UI for manual assignment).
 - [ ] Filter per node; regression test that product A's docs don't appear under product B.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B15 — Node deletion leaves orphaned data and files
 `delete_node` does not clean `Document` records + disk files, `WorkOrder`, `NotificationLog`, or uploaded image files (images: only records deleted).
 
@@ -283,6 +318,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Keep a simple `deleted_uploads` audit line (log) or a dry-run listing (nice-to-have).
 - [ ] Regression test: build product + part + doc + image + schedule → delete root → filesystem and orphan tables are clean.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B16 — Image upload for product/assembly nodes is a no-op
 `_apply_node_fields` only handles the `images` block for `typ == 'part'`, but the frontend uploads images for all node types → file saved, no record created, image vanishes after reload.
 
@@ -291,6 +328,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Same gallery semantics for those types (labels, delete).
 - [ ] Regression test per node type: upload → save → reload → image persists.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B17 — Weak validation on node save
 `_apply_node_fields`: no checks for `status`/`part_type` values, empty names, field lengths; `estimated_*`/`actual_*` (cost/hours) accept arbitrary strings/numbers into Float columns (SQLite type affinity accepts them silently).
 
@@ -298,6 +337,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Validate enums (`status`, `part_type`) and clamp/parse numerics with `validate_quantities`-style helper for stage fields.
 - [ ] Enforce nonempty names and reasonable max lengths (mirror the manufacturer `_definition_payload` rules).
 - [ ] Return the first validation problem as JSON 400.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B18 — Fragile exports (Excel / Graphviz schematic)
 - Schematic: node/stage names injected unescaped into the Graphviz HTML label (a `<` breaks PDF generation); Windows paths with backslashes are interpolated into `<IMG SRC="...">`; missing `dot` binary ⇒ raw 500.
@@ -309,6 +350,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Excel: ensure unique sheet titles (de-dup with a suffix map on our side; don't rely on openpyxl), and make the image anchor column configurable.
 - [ ] Regression tests: export with names containing `<> &`; export machine without graphviz → clean error.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B19 — N+1 / O(n²) load path
 `load_data()` issues per-entity queries (products → 2 queries each, assemblies/issues similarly, then `StageDetails`/`manufacturers` per stage); `/api/notifications` builds the same dataset again; frontend `refreshDemandViews` rebuilds the whole subtree per node.
 
@@ -318,6 +361,8 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 - [ ] Frontend: update only affected nodes on edits (jstree supports `set_text` per node — partial done).
 - [ ] Benchmark before/after with ~200 parts (assert < some ms budget in a perf test).
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B20 — Non-JSON error responses on classic routes
 Classic routes leak HTML error pages (framework errors) while the frontend calls `res.json()` — users see "Unexpected token <" instead of the cause.
 
@@ -325,6 +370,8 @@ Classic routes leak HTML error pages (framework errors) while the frontend calls
 - [ ] Add app-level error handlers: `400/404/415/500` → JSON when `request.path.startswith('/api/')`.
 - [ ] Frontend helper `readJson(res)` that throws with status + text for non-JSON payloads.
 - [ ] Regression test: any invalid classic POST returns JSON error body.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B25 — Low-stock email scheduler misconfigured
 The APScheduler job only runs under `__main__` (never under gunicorn); with `debug=True` the reloader runs it twice; every 6 hours it re-sends without any "already sent" memory (`NotificationLog` is written but never consulted); `check_and_notify_low_stock` also opens a redundant app context.
@@ -334,6 +381,8 @@ The APScheduler job only runs under `__main__` (never under gunicorn); with `deb
 - [ ] Before sending, check `NotificationLog` for a recent successful send for the same part+recipient (window, e.g. 24h) — significant refactor; keep design decision here.
 - [ ] Remove the inner `with current_app.app_context()` (caller already provides one).
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B29 — Supplier name field permanently hidden
 `#supplier-group` has a fixed `display:none` in `templates/index.html`; nothing ever shows it, even for parts. The input is still filled/wired, so the data model exists but the field is invisible.
 
@@ -341,12 +390,16 @@ The APScheduler job only runs under `__main__` (never under gunicorn); with `deb
 - [ ] Show it for parts (mirror `#part-email-group` visibility logic), keep hidden for assemblies/products.
 - [ ] Regression test in browser test: edit a part, supplier field visible and saveable.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B30 — Schedule filtering matches by product name too (Corrected)
 `loadSchedulesForProduct` filters `s.product_name === productName || s.product_id == productId...`. The id branch exists now; two products with the *same name* still cross-match through the name branch. Original claim was partially stale.
 
 **Fix checklist:**
 - [ ] Drop the name branch; filter by id only.
 - [ ] Regression test with two same-named products.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B31 — Stage details are keyed by positional index
 `stageDetailsMap[idx]` + drag-and-drop reordering ⇒ details follow the wrong stage. Unsaved stages' details also only live client-side; once the stage gets a server id via autosave, details are never persisted.
@@ -357,6 +410,8 @@ The APScheduler job only runs under `__main__` (never under gunicorn); with `deb
 - [ ] Persist stage details at the same moment stages are saved (after autosave assigns ids).
 - [ ] Regression test: add stages, reorder, reload → details stay on their stages.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B32 — Status colors defined in three places
 CSS with `!important`, JS inline colors (`inventoryStatus` anchor coloring), and theme variables. `toggleTheme` doesn't recompute inline styles; the CSS `!important` rules also override the JS coloring at runtime.
 
@@ -364,6 +419,8 @@ CSS with `!important`, JS inline colors (`inventoryStatus` anchor coloring), and
 - [ ] Single source: status classes (`status-*`) styled purely via CSS variables; JS sets class, not color strings.
 - [ ] Remove corresponding `!important` rules and hardcoded hex (#4CAF50/#FF9800/#F44336) where duplicated.
 - [ ] Browser test: toggle theme → node colors follow without reload.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B34 — Errors swallowed in the UI
 `move_node.jstree` handler, `deleteNode`, `confirmInlineEdit`, `addChildOf` don't check non-2xx (a rejected move/delete looks successful); `loadNotifications` doesn't check `res.ok`.
@@ -373,6 +430,8 @@ CSS with `!important`, JS inline colors (`inventoryStatus` anchor coloring), and
 - [ ] On failed move, revert the tree node to its original parent (re-fetch).
 - [ ] Browser test: simulate 400 from server → visible message shown.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B38 — CDN dependency without fallback on settings/manufacturers pages
 `templates/settings.html` (and `manufacturers.html`) load jQuery only from CDN, no local fallback, no SRI. Offline/filtered networks kill these pages entirely (the main index page has a fallback).
 
@@ -381,6 +440,8 @@ CSS with `!important`, JS inline colors (`inventoryStatus` anchor coloring), and
 - [ ] Add SRI hash if CDN reference remains.
 - [ ] Align loading order across templates (one shared block).
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B42 — Coverage gaps and empty README
 No tests for: `/api/schedules`, work orders, excel/schematic exports, documents, settings, classic `/api/node` routes, `viewer` role — precisely where the bugs above live. `README.md` is just `# bom`. Also 648 `LegacyAPIWarning`s in test runs.
 
@@ -388,6 +449,8 @@ No tests for: `/api/schedules`, work orders, excel/schematic exports, documents,
 - [ ] Add API-level test classes for the six routes listed (a single `test_classic_api.py` is enough).
 - [ ] Write a real README: setup, env vars, roles, migrations, scheduler, known limitations ending in bugs.md references...
 - [ ] Silence modernization warnings by switching legacy `Query.get()` to `db.session.get()` (the only systematic family of warnings).
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ---
 
@@ -413,12 +476,16 @@ No tests for: `/api/schedules`, work orders, excel/schematic exports, documents,
 - [ ] Count stats from the same traversed tree used for rendering.
 - [ ] Regression test with a cycle fixture.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B35 — Autosave without conflict detection
 Every keystroke sends the whole node; two open tabs = last write wins, silently.
 
 **Fix checklist:**
 - [ ] Add `updated_at` on node tables and include it in payloads; reject PUT when the served version is newer (409) with a toast.
 - [ ] Throttle autosave beyond the current 600ms debounce (e.g. coalesce unchanged fields).
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ### B36 — Duplicated/dead frontend code
 Two independent manufacturer-create flows (`submitMfrForm` and `ManufacturerUI.openEditor`), shared `mfrExpandState` across part views, and `stageDetailsMap = {}`/`expandedStages = {}` reset on every node selection.
@@ -428,6 +495,8 @@ Two independent manufacturer-create flows (`submitMfrForm` and `ManufacturerUI.o
 - [ ] Scope expand-state per node/per part context (keyed state), or persist intentionally.
 - [ ] Preserve expand state on switching back to the same node when the node didn't change.
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B39 — CSS leftovers (Corrected)
 Two `#shortage-info` blocks exist (`style.css:331` and `:494`), with `!important` interplay; hardcoded colors (#f44336/#4CAF50/#333) appear across files. **Correction:** `--color-scheme-inherit` is *used* (line 443, `color-scheme: var(--color-scheme-inherit, light)`) — the actual oddity is its hardcoded `dark` value at line 46.
 
@@ -436,6 +505,8 @@ Two `#shortage-info` blocks exist (`style.css:331` and `:494`), with `!important
 - [ ] Rename the variable to describe actual behavior (e.g. `--page-color-scheme`) and set it per theme, not hardcoded `dark`.
 - [ ] Sweep hardcoded colors into theme variables (status colors shared with B32 work).
 
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+
 ### B40 — Accessibility basics
 Emoji-only buttons without `aria-label`; status conveyed by color alone (tree nodes); gallery title mislabeled (`title="No images"` on every image, script.js `renderImageGallery`).
 
@@ -443,6 +514,8 @@ Emoji-only buttons without `aria-label`; status conveyed by color alone (tree no
 - [ ] Add `aria-label`/`title` to icon-only buttons.
 - [ ] Status shown via icon+color (make class from B32 include an icon glyph).
 - [ ] Fix image title to the image label.
+
+**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
 ---
 
@@ -463,4 +536,4 @@ The original claim was: the browser dark-mode test read computed styles while a 
 1. **Phase 0 — security, smallest diffs (done):** B1 → B3 → B2 → B13 → B7 (each 1–3 touchpoints; B2 needs the shared decorator first).
 2. **Phase 1 — data correctness:** ~~B8~~, ~~B9~~, ~~B12~~, ~~B10~~ (done), then B11, B15, B16, B14, B23, B22, B21, B24. Security continuations B4/B6 are also done.
 3. **Phase 2 — UX and frontend correctness:** B26, B27, B28, B29, B30, B31, B34 (B20, B5 ride along here).
-4. **Phase 3 — quality/performance/grinding:** B19, B18, B32, B38, B39, B40, B25, B6, B33, B35, B36, B42 (tests last, once phases 1–2 stabilize the routes).
+4. **Phase 3 — quality/performance/grinding:** B19, B18, B32, B38, B39, B40, B25, B33, B35, B36, B42 (tests last, once phases 1–2 stabilize the routes).
