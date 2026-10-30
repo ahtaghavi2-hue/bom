@@ -1,14 +1,37 @@
-from flask import Blueprint, request, jsonify, url_for
+from flask import Blueprint, request, jsonify, url_for, current_app
+from bom_calculation import validate_quantities
 from flask_login import login_required, current_user
 from extensions import db
 from models import Product, Assembly, Part, Stage, Image, ProductionSchedule, WorkOrder, NotificationLog
 from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
+from models import Category, Tag, StageManufacturer
+from manufacturer_service import (json_object, validate_ids, validate_manufacturer, apply_manufacturer,
+    replace_stage_manufacturers, stage_manufacturers, manufacturer_usage, filter_manufacturers,
+    manufacturer_workbook)
 from datetime import datetime
 import os
 import uuid
 from pathlib import Path
 
 api_bp = Blueprint('api_v2', __name__, url_prefix='/api/v2')
+
+
+def _inventory_data(fields):
+    from werkzeug.exceptions import BadRequest
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise BadRequest('JSON object required')
+    try:
+        data.update(validate_quantities(data, fields))
+    except ValueError as error:
+        raise BadRequest(str(error)) from error
+    return data
+
+
+@api_bp.errorhandler(400)
+def invalid_inventory(error):
+    return jsonify({'error': error.description}), 400
+
 
 def admin_required(f):
     from functools import wraps
@@ -40,7 +63,7 @@ def get_product(product_id):
 @api_bp.route('/products', methods=['POST'])
 @admin_required
 def create_product():
-    data = request.get_json()
+    data = _inventory_data(('quantity', 'order_count'))
     product = Product(
         name=data.get('name', 'محصول جدید'),
         code=data.get('code', ''),
@@ -48,6 +71,7 @@ def create_product():
         specs=data.get('specs', ''),
         notes=data.get('notes', ''),
         order_count=data.get('order_count', 0),
+        quantity=data.get('quantity', 0),
         status=data.get('status', 'active'),
         created_by=current_user.id
     )
@@ -59,8 +83,8 @@ def create_product():
 @admin_required
 def update_product(product_id):
     product = Product.query.get_or_404(product_id)
-    data = request.get_json()
-    for key in ('name', 'code', 'description', 'specs', 'notes', 'order_count', 'status'):
+    data = _inventory_data(('quantity', 'order_count'))
+    for key in ('name', 'code', 'description', 'specs', 'notes', 'order_count', 'quantity', 'status'):
         if key in data:
             setattr(product, key, data[key])
     db.session.commit()
@@ -84,6 +108,7 @@ def list_assemblies(product_id):
         children = Assembly.query.filter_by(parent_id=a.id).order_by(Assembly.sort_order).all()
         return {
             'id': a.id, 'name': a.name, 'description': a.description,
+            'quantity': a.quantity, 'required_quantity': a.required_quantity,
             'parts': [p.to_dict() for p in a.parts.order_by(Part.sort_order).all()],
             'children': [build_tree(c) for c in children]
         }
@@ -92,17 +117,35 @@ def list_assemblies(product_id):
 @api_bp.route('/assemblies', methods=['POST'])
 @admin_required
 def create_assembly():
-    data = request.get_json()
+    data = _inventory_data(('quantity', 'required_quantity'))
+    product = db.session.get(Product, data.get('product_id'))
+    parent = db.session.get(Assembly, data['parent_id']) if data.get('parent_id') is not None else None
+    if not product or (data.get('parent_id') is not None and (not parent or parent.product_id != product.id)):
+        return jsonify({'error': 'Invalid product or assembly parent'}), 400
     assembly = Assembly(
         product_id=data['product_id'],
         parent_id=data.get('parent_id'),
         name=data['name'],
         description=data.get('description', ''),
+        quantity=data.get('quantity', 0),
+        required_quantity=data.get('required_quantity', 1),
         sort_order=data.get('sort_order', 0)
     )
     db.session.add(assembly)
     db.session.commit()
     return jsonify({'success': True, 'data': assembly.to_dict()}), 201
+
+@api_bp.route('/assemblies/<int:assembly_id>', methods=['PUT', 'PATCH'])
+@admin_required
+def update_assembly(assembly_id):
+    assembly = Assembly.query.get_or_404(assembly_id)
+    data = _inventory_data(('quantity', 'required_quantity'))
+    for key in ('name', 'description', 'sort_order', 'quantity', 'required_quantity'):
+        if key in data:
+            setattr(assembly, key, data[key])
+    db.session.commit()
+    return jsonify({'success': True, 'data': assembly.to_dict()})
+
 
 # ───── Parts ─────
 
@@ -115,7 +158,9 @@ def list_parts(assembly_id):
 @api_bp.route('/parts', methods=['POST'])
 @admin_required
 def create_part():
-    data = request.get_json()
+    data = _inventory_data(('quantity', 'required_quantity'))
+    if not db.session.get(Assembly, data.get('assembly_id')):
+        return jsonify({'error': 'Invalid assembly parent'}), 400
     part = Part(
         assembly_id=data['assembly_id'],
         name=data.get('name', 'قطعه جدید'),
@@ -137,7 +182,7 @@ def create_part():
 @admin_required
 def update_part(part_id):
     part = Part.query.get_or_404(part_id)
-    data = request.get_json()
+    data = _inventory_data(('quantity', 'required_quantity'))
     for key in ('name', 'part_code', 'specs', 'part_type', 'quantity',
                 'required_quantity', 'supplier', 'supplier_email', 'notes', 'status'):
         if key in data:
@@ -164,7 +209,15 @@ def list_stages(part_id):
 @api_bp.route('/stages', methods=['POST'])
 @admin_required
 def create_stage():
-    data = request.get_json()
+    data = json_object(request)
+    try:
+        ids = validate_ids(data['manufacturer_ids'], Manufacturer, 'manufacturer_ids') if 'manufacturer_ids' in data else None
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    if type(data.get('part_id')) is not int or not db.session.get(Part, data['part_id']):
+        return jsonify({'error': 'Invalid part_id'}), 400
+    if not isinstance(data.get('name'), str) or not data['name'].strip():
+        return jsonify({'error': 'Invalid stage name'}), 400
     stage = Stage(
         part_id=data['part_id'],
         name=data['name'],
@@ -174,6 +227,8 @@ def create_stage():
         estimated_overhead=data.get('estimated_overhead', 0),
         estimated_hours=data.get('estimated_hours', 0)
     )
+    if ids is not None:
+        replace_stage_manufacturers(stage, ids)
     db.session.add(stage)
     db.session.commit()
     return jsonify({'success': True, 'data': stage.to_dict()}), 201
@@ -182,7 +237,13 @@ def create_stage():
 @admin_required
 def update_stage(stage_id):
     stage = Stage.query.get_or_404(stage_id)
-    data = request.get_json()
+    data = json_object(request)
+    try:
+        ids = validate_ids(data['manufacturer_ids'], Manufacturer, 'manufacturer_ids') if 'manufacturer_ids' in data else None
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    if ids is not None:
+        replace_stage_manufacturers(stage, ids)
     for key in ('name', 'status', 'sort_order',
                 'estimated_material_cost', 'actual_material_cost',
                 'estimated_labor_cost', 'actual_labor_cost',
@@ -279,11 +340,9 @@ def dashboard():
     active_schedules = ProductionSchedule.query.filter(
         ProductionSchedule.status.in_(['planned', 'in_progress'])
     ).count()
-    low_stock_parts = 0
-    for p in Part.query.all():
-        required = p.required_quantity or 1
-        if (p.quantity or 0) < required:
-            low_stock_parts += 1
+    nodes = current_app.extensions['bom_load_data']()['nodes']
+    low_stock_parts = sum(1 for node in nodes.values()
+                          if node['type'] == 'part' and node['shortage'] > 0)
     stages_completed = Stage.query.filter_by(status='completed').count()
     stages_total = Stage.query.count()
     total_estimated_cost = db.session.query(db.func.sum(Stage.estimated_material_cost + Stage.estimated_labor_cost + Stage.estimated_overhead)).scalar() or 0
@@ -310,28 +369,22 @@ def dashboard():
 @api_bp.route('/manufacturers', methods=['GET'])
 @login_required
 def list_manufacturers():
-    manufacturers = Manufacturer.query.order_by(Manufacturer.name).all()
+    try:
+        manufacturers = filter_manufacturers(request.args).all()
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
     return jsonify({'success': True, 'data': [m.to_dict() for m in manufacturers]})
 
 @api_bp.route('/manufacturers', methods=['POST'])
 @admin_required
 def create_manufacturer():
-    data = request.get_json()
-    mfr = Manufacturer(name=data.get('name', 'سازنده جدید'))
-    mfr.phone = data.get('phone', '')
-    mfr.address = data.get('address', '')
-    mfr.notes = data.get('notes', '')
+    try:
+        values = validate_manufacturer(json_object(request), creating=True)
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    mfr = Manufacturer(name=values['name'])
+    apply_manufacturer(mfr, values)
     db.session.add(mfr)
-    db.session.flush()
-    for email in data.get('emails', []):
-        if email.get('email', '').strip():
-            db.session.add(ManufacturerEmail(manufacturer_id=mfr.id, email=email['email'].strip()))
-    for phone in data.get('phones', []):
-        if phone.get('phone', '').strip():
-            db.session.add(ManufacturerPhone(manufacturer_id=mfr.id, phone=phone['phone'].strip()))
-    for social in data.get('socials', []):
-        if social.get('platform', '').strip() and social.get('handle', '').strip():
-            db.session.add(ManufacturerSocial(manufacturer_id=mfr.id, platform=social['platform'].strip(), handle=social['handle'].strip()))
     db.session.commit()
     return jsonify({'success': True, 'data': mfr.to_dict()}), 201
 
@@ -339,26 +392,11 @@ def create_manufacturer():
 @admin_required
 def update_manufacturer(mfr_id):
     mfr = Manufacturer.query.get_or_404(mfr_id)
-    data = request.get_json()
-    if 'name' in data: mfr.name = data['name']
-    if 'phone' in data: mfr.phone = data['phone']
-    if 'address' in data: mfr.address = data['address']
-    if 'notes' in data: mfr.notes = data['notes']
-    if 'emails' in data:
-        ManufacturerEmail.query.filter_by(manufacturer_id=mfr.id).delete()
-        for email in data['emails']:
-            if email.get('email', '').strip():
-                db.session.add(ManufacturerEmail(manufacturer_id=mfr.id, email=email['email'].strip()))
-    if 'phones' in data:
-        ManufacturerPhone.query.filter_by(manufacturer_id=mfr.id).delete()
-        for phone in data['phones']:
-            if phone.get('phone', '').strip():
-                db.session.add(ManufacturerPhone(manufacturer_id=mfr.id, phone=phone['phone'].strip()))
-    if 'socials' in data:
-        ManufacturerSocial.query.filter_by(manufacturer_id=mfr.id).delete()
-        for social in data['socials']:
-            if social.get('platform', '').strip() and social.get('handle', '').strip():
-                db.session.add(ManufacturerSocial(manufacturer_id=mfr.id, platform=social['platform'].strip(), handle=social['handle'].strip()))
+    try:
+        values = validate_manufacturer(json_object(request))
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    apply_manufacturer(mfr, values)
     db.session.commit()
     return jsonify({'success': True, 'data': mfr.to_dict()})
 
@@ -366,9 +404,113 @@ def update_manufacturer(mfr_id):
 @admin_required
 def delete_manufacturer(mfr_id):
     mfr = Manufacturer.query.get_or_404(mfr_id)
+    if mfr.parts or mfr.stage_links:
+        return jsonify({'error': 'Manufacturer is referenced; deactivate using is_active=false instead'}), 409
     db.session.delete(mfr)
     db.session.commit()
     return jsonify({'success': True, 'message': 'سازنده حذف شد'})
+
+
+@api_bp.route('/manufacturers/<int:mfr_id>', methods=['GET'])
+@login_required
+def get_manufacturer(mfr_id):
+    manufacturer = Manufacturer.query.get_or_404(mfr_id)
+    return jsonify({'success': True, 'data': dict(manufacturer.to_dict(), usage_stages=manufacturer_usage(manufacturer))})
+
+
+@api_bp.route('/manufacturers/export/excel')
+@api_bp.route('/manufacturers/<int:mfr_id>/export/excel')
+@login_required
+def export_manufacturers(mfr_id=None):
+    from flask import send_file
+    try:
+        manufacturers = [Manufacturer.query.get_or_404(mfr_id)] if mfr_id is not None else filter_manufacturers(request.args).all()
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    return send_file(manufacturer_workbook(manufacturers), as_attachment=True,
+        download_name='manufacturers.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+@api_bp.route('/stages/<int:stage_id>/manufacturers', methods=['GET', 'PUT'])
+@login_required
+def stage_manufacturer_list(stage_id):
+    if request.method == 'PUT' and current_user.role not in ('admin', 'engineer'):
+        return jsonify({'error': 'دسترسی غیرمجاز'}), 403
+    stage = Stage.query.get_or_404(stage_id)
+    if request.method == 'PUT':
+        try:
+            ids = validate_ids(json_object(request).get('manufacturer_ids'), Manufacturer, 'manufacturer_ids')
+        except ValueError as error:
+            return jsonify({'error': str(error)}), 400
+        replace_stage_manufacturers(stage, ids)
+        db.session.commit()
+    return jsonify({'success': True, 'data': stage_manufacturers(stage)})
+
+
+def _definition_payload(model, item=None):
+    data = json_object(request)
+    name = data.get('name', item.name if item else None)
+    if not isinstance(name, str) or not name.strip() or len(name.strip()) > 200:
+        raise ValueError('name must be a nonempty string (maximum 200 characters)')
+    values = {'name': name.strip()}
+    duplicate = model.query.filter_by(name=values['name'])
+    if model is Tag:
+        category_id = data.get('category_id', item.category_id if item else None)
+        if type(category_id) is not int or not db.session.get(Category, category_id):
+            raise ValueError('Invalid category_id')
+        values['category_id'] = category_id
+        duplicate = duplicate.filter_by(category_id=category_id)
+    if item:
+        duplicate = duplicate.filter(model.id != item.id)
+    if duplicate.first():
+        raise ValueError('Definition already exists in this category')
+    return values
+
+
+def _definitions(model, item_id=None):
+    if request.method != 'GET' and current_user.role not in ('admin', 'engineer'):
+        return jsonify({'error': 'دسترسی غیرمجاز'}), 403
+    item = model.query.get_or_404(item_id) if item_id is not None else None
+    if request.method == 'GET':
+        query = model.query.order_by(model.id)
+        if model is Tag and request.args.get('category_id') is not None:
+            raw = request.args['category_id']
+            if not raw.isdecimal() or int(raw) <= 0:
+                return jsonify({'error': 'Invalid category_id'}), 400
+            query = query.filter_by(category_id=int(raw))
+        return jsonify({'success': True, 'data': [row.to_dict() for row in query.all()]})
+    if request.method == 'DELETE':
+        if (model is Category and item.tags) or (model is Tag and item.manufacturers):
+            return jsonify({'error': 'Definition is in use'}), 409
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify({'success': True})
+    try:
+        values = _definition_payload(model, item)
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    if item is None:
+        item = model(**values)
+        db.session.add(item)
+    else:
+        for key, value in values.items():
+            setattr(item, key, value)
+    db.session.commit()
+    return jsonify({'success': True, 'data': item.to_dict()}), 201 if request.method == 'POST' else 200
+
+
+@api_bp.route('/manufacturer-categories', methods=['GET', 'POST'])
+@api_bp.route('/manufacturer-categories/<int:item_id>', methods=['PUT', 'DELETE'])
+@login_required
+def manufacturer_categories(item_id=None):
+    return _definitions(Category, item_id)
+
+
+@api_bp.route('/manufacturer-tags', methods=['GET', 'POST'])
+@api_bp.route('/manufacturer-tags/<int:item_id>', methods=['PUT', 'DELETE'])
+@login_required
+def manufacturer_tags_api(item_id=None):
+    return _definitions(Tag, item_id)
 
 # ───── Part-Manufacturer Association ─────
 
@@ -451,7 +593,7 @@ def _auto_generate_work_orders(schedule):
         parts = []
         for p in assembly.parts.all():
             parts.append(p)
-        for sub in assembly.sub_assemblies:
+        for sub in assembly.children:
             parts.extend(collect_parts(sub))
         return parts
     for assembly in assemblies:
@@ -471,12 +613,12 @@ def _auto_generate_work_orders(schedule):
 def _add_to_dict_methods():
     for cls, fields, full_fields in [
         (Product,
-         ['id', 'name', 'code', 'status', 'order_count', 'created_at'],
-         ['id', 'name', 'code', 'description', 'specs', 'notes', 'order_count', 'status',
+         ['id', 'name', 'code', 'status', 'order_count', 'quantity', 'created_at'],
+         ['id', 'name', 'code', 'description', 'specs', 'notes', 'order_count', 'quantity', 'status',
           'created_by', 'created_at', 'updated_at']),
         (Assembly,
-         ['id', 'product_id', 'parent_id', 'name', 'sort_order'],
-         ['id', 'product_id', 'parent_id', 'name', 'description', 'sort_order', 'created_at']),
+         ['id', 'product_id', 'parent_id', 'name', 'quantity', 'required_quantity', 'sort_order'],
+         ['id', 'product_id', 'parent_id', 'name', 'description', 'quantity', 'required_quantity', 'sort_order', 'created_at']),
         (Part,
          ['id', 'assembly_id', 'name', 'part_code', 'part_type', 'quantity', 'required_quantity', 'status'],
          ['id', 'assembly_id', 'name', 'part_code', 'specs', 'part_type', 'quantity',
@@ -498,16 +640,19 @@ def _add_to_dict_methods():
          ['id', 'schedule_id', 'part_id', 'quantity', 'status',
           'assigned_to', 'due_date', 'started_at', 'completed_at', 'notes', 'created_at']),
     ]:
-        def make_to_dict(fs):
+        def make_to_dict(short_fields, fs):
             def to_dict(self, full=False):
                 result = {}
-                for f in (fs if full else fields):
+                for f in (fs if full else short_fields):
                     val = getattr(self, f)
                     if isinstance(val, datetime):
                         val = val.isoformat()
                     result[f] = val
+                if isinstance(self, Stage):
+                    result.update(stage_manufacturers(self))
+                    result['details'] = [detail.to_dict() for detail in self.details.all()]
                 return result
             return to_dict
-        cls.to_dict = make_to_dict(full_fields)
+        cls.to_dict = make_to_dict(tuple(fields), tuple(full_fields))
 
 _add_to_dict_methods()

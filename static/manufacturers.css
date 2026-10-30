@@ -1,0 +1,38 @@
+.mfg-dashboard { max-width: 1440px; margin: auto; padding: 24px; }
+.mfg-toolbar, .mfg-directory-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; }
+.mfg-actions, .mfg-card-heading, .mfg-contact-row, .mfg-modal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mfg-card-heading, .mfg-modal-head { justify-content: space-between; }
+.mfg-card-heading h2 { font-size: 18px; margin: 0; overflow-wrap: anywhere; }
+.mfg-directory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+.mfg-filter-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin: 18px 0; }
+.mfg-filter-grid label, .mfg-form > label { display: flex; flex-direction: column; gap: 6px; }
+.mfg-filter-grid input, .mfg-filter-grid select, .mfg-form input:not([type=checkbox]), .mfg-form select, .mfg-form textarea, .mfg-picker-filters input:not([type=checkbox]), .mfg-picker-filters select { width: 100%; padding: 9px; border: 1px solid var(--border-color); border-radius: 5px; background: var(--bg-secondary); color: var(--text-primary); font: inherit; }
+.mfg-button { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font: inherit; }
+.mfg-primary { background: #287847; color: white; border-color: #287847; }
+.mfg-button:disabled { opacity: .5; cursor: not-allowed; }
+.mfg-button:focus-visible, :is(.mfg-form, .mfg-filter-grid, .mfg-picker-filters, .mfg-tag-choices) :is(input, select, textarea):focus-visible { outline: 2px solid var(--focus-border); outline-offset: 2px; }
+.mfg-tag-choices, .mfg-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.mfg-tag-choices label, .mfg-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border-color); padding: 4px 7px; border-radius: 12px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 12px; overflow-wrap: anywhere; }
+.mfg-tag-choices label { white-space: nowrap; flex: 0 0 auto; }
+.mfg-tag-choices input[type=checkbox] { width: auto; flex: 0 0 auto; padding: 0; margin: 0; }
+.mfg-inactive { border-color: var(--accent-orange); color: var(--text-primary); }
+.mfg-contact, .mfg-notes { overflow-wrap: anywhere; white-space: pre-wrap; color: var(--text-secondary); margin: 10px 0; }
+.mfg-hint { color: var(--text-secondary); font-size: 12px; }
+.mfg-message:empty { display: none; }
+.mfg-message { padding: 10px; margin-bottom: 10px; }
+.mfg-error { border: 1px solid var(--accent-red); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); }
+.mfg-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 2200; display: flex; justify-content: center; align-items: center; padding: 20px; }
+.mfg-modal { width: 680px; max-width: 100%; max-height: 90vh; overflow-y: auto; padding: 20px; border-radius: 10px; background: var(--bg-secondary); box-shadow: 0 8px 36px rgba(0,0,0,.25); }
+.mfg-modal-head { margin-bottom: 16px; }
+.mfg-modal-head h2 { margin: 0; font-size: 19px; }
+.mfg-form { display: grid; gap: 14px; }
+.mfg-form fieldset, .mfg-toolbar fieldset { border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; min-width: 0; }
+.mfg-contact-row { margin-bottom: 7px; flex-wrap: nowrap; }
+.mfg-contact-row input, .mfg-contact-row select { flex: 1; min-width: 0; }
+.mfg-contact-row button { flex-shrink: 0; }
+.mfg-stage-row { border: 1px solid var(--border-color); border-radius: 6px; margin: 6px 0; padding: 8px; background: var(--bg-secondary); }
+.mfg-stage-row .mfg-actions { margin-top: 6px; }
+.mfg-picker-filters { display: grid; gap: 10px; margin-bottom: 12px; }
+.mfg-picker-result { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 7px; }
+.mfg-picker-results { max-height: 45vh; overflow: auto; }
+@media (max-width: 700px) { .mfg-filter-grid { grid-template-columns: 1fr; } .mfg-dashboard { padding: 12px; } .app-header { flex-wrap: wrap; gap: 12px; } .header-left { flex-wrap: wrap; } .mfg-overlay { padding: 8px; } }

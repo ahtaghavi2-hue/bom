@@ -33,6 +33,7 @@ class Product(db.Model):
     specs = db.Column(db.Text)
     notes = db.Column(db.Text)
     order_count = db.Column(db.Integer, default=0)
+    quantity = db.Column(db.Integer, default=0)
     status = db.Column(db.String(20), default='active')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -48,6 +49,8 @@ class Assembly(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('assemblies.id'), nullable=True)
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
+    quantity = db.Column(db.Integer, default=0)
+    required_quantity = db.Column(db.Integer, default=1)
     sort_order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -102,6 +105,9 @@ class Stage(db.Model):
     actual_overhead = db.Column(db.Float, default=0.0)
     estimated_hours = db.Column(db.Float, default=0.0)
     actual_hours = db.Column(db.Float, default=0.0)
+
+    manufacturer_links = db.relationship('StageManufacturer', back_populates='stage',
+        cascade='all, delete-orphan', order_by='StageManufacturer.priority')
 
     @property
     def estimated_total(self):
@@ -214,18 +220,33 @@ class Manufacturer(db.Model):
     phones = db.relationship('ManufacturerPhone', backref='manufacturer', lazy='dynamic', cascade='all, delete-orphan')
 
     parts = db.relationship('Part', secondary=part_manufacturers, backref=db.backref('manufacturers', lazy='dynamic'))
+    is_active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    tags = db.relationship('Tag', secondary='manufacturer_tags', back_populates='manufacturers',
+                           order_by='Tag.id')
+    stage_links = db.relationship('StageManufacturer', back_populates='manufacturer')
 
     def to_dict(self):
+        phones = []
+        seen = set()
+        for item in self.phones.order_by(ManufacturerPhone.id).all():
+            value = item.phone.strip()
+            if value and value not in seen:
+                phones.append(item.to_dict())
+                seen.add(value)
+        if self.phone and self.phone.strip() not in seen:
+            phones.insert(0, {'id': None, 'phone': self.phone.strip()})
         return {
             'id': self.id,
             'name': self.name,
             'phone': self.phone,
             'address': self.address,
             'notes': self.notes,
+            'is_active': self.is_active,
+            'tags': [tag.to_dict() for tag in self.tags],
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'emails': [e.to_dict() for e in self.emails.all()],
-            'socials': [s.to_dict() for s in self.socials.all()],
-            'phones': [p.to_dict() for p in self.phones.all()]
+            'emails': [e.to_dict() for e in self.emails.order_by(ManufacturerEmail.id).all()],
+            'socials': [s.to_dict() for s in self.socials.order_by(ManufacturerSocial.id).all()],
+            'phones': phones
         }
 
 class ManufacturerEmail(db.Model):
@@ -255,6 +276,45 @@ class ManufacturerSocial(db.Model):
 
     def to_dict(self):
         return {'id': self.id, 'platform': self.platform, 'handle': self.handle}
+
+manufacturer_tags = db.Table('manufacturer_tags',
+    db.Column('manufacturer_id', db.Integer, db.ForeignKey('manufacturers.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('manufacturer_tags_definitions.id'), primary_key=True)
+)
+
+
+class Category(db.Model):
+    __tablename__ = 'manufacturer_categories'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    tags = db.relationship('Tag', back_populates='category')
+
+    def to_dict(self):
+        return {'id': self.id, 'name': self.name}
+
+
+class Tag(db.Model):
+    __tablename__ = 'manufacturer_tags_definitions'
+    __table_args__ = (db.UniqueConstraint('category_id', 'name'),)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('manufacturer_categories.id'), nullable=False)
+    category = db.relationship('Category', back_populates='tags')
+    manufacturers = db.relationship('Manufacturer', secondary=manufacturer_tags, back_populates='tags')
+
+    def to_dict(self):
+        return {'id': self.id, 'name': self.name, 'category_id': self.category_id,
+                'category_name': self.category.name}
+
+
+class StageManufacturer(db.Model):
+    __tablename__ = 'stage_manufacturers'
+    stage_id = db.Column(db.Integer, db.ForeignKey('stages.id'), primary_key=True)
+    manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'), primary_key=True)
+    priority = db.Column(db.Integer, nullable=False)
+    stage = db.relationship('Stage', back_populates='manufacturer_links')
+    manufacturer = db.relationship('Manufacturer', back_populates='stage_links')
+
 
 # ───── Stage Details ─────
 

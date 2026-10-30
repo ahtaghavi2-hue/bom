@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>دفتر مرکزی سازندگان</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='manufacturers.css') }}">
+</head>
+<body>
+    <header class="app-header">
+        <h1 class="app-title" data-mfg-text="title">دفتر مرکزی سازندگان</h1>
+        <nav class="header-left" aria-label="Navigation">
+            <a href="/" class="header-btn" data-mfg-text="back">داشبورد BOM</a>
+            <span>{{ current_user.username }}</span>
+            <button class="header-btn" id="directory-lang" type="button">EN</button>
+            <button class="header-btn" id="directory-theme" type="button">Dark / تیره</button>
+        </nav>
+    </header>
+    <main id="manufacturer-dashboard" class="mfg-dashboard">
+        <section class="mfg-toolbar">
+            <div class="mfg-actions">
+                <button id="directory-new" class="mfg-button mfg-primary" data-mfg-text="create" type="button">سازنده جدید</button>
+                <button id="directory-taxonomy" class="mfg-button" data-mfg-text="taxonomy" type="button">مدیریت دسته‌ها و برچسب‌ها</button>
+                <button id="directory-export-filtered" class="mfg-button" data-mfg-text="filtered" type="button">Excel نتایج فیلترشده</button>
+                <button id="directory-export-all" class="mfg-button" data-mfg-text="exportAll" type="button">Excel همه سازندگان</button>
+            </div>
+            <div class="mfg-filter-grid">
+                <label><span data-mfg-text="search">جستجو</span><input id="directory-search" type="search"></label>
+                <label><span data-mfg-text="active">فعال</span><select id="directory-active"></select></label>
+                <label><span data-mfg-text="category">دسته</span><select id="directory-category"></select></label>
+            </div>
+            <fieldset><legend data-mfg-text="tags">برچسب‌ها</legend><div id="directory-tags" class="mfg-tag-choices"></div></fieldset>
+            <p class="mfg-hint" data-mfg-text="tagHint">برچسب‌های انتخاب‌شده با شرط «و» ترکیب می‌شوند.</p>
+            <div id="directory-metadata-error"></div>
+        </section>
+        <p><span data-mfg-text="count">سازندگان مطابق فیلتر</span>: <strong id="directory-count">—</strong></p>
+        <div id="directory-status" class="mfg-message" aria-live="polite"></div>
+        <section id="directory-list" class="mfg-directory-grid" aria-live="polite"></section>
+    </main>
+    <script src="{{ url_for('static', filename='manufacturers.js') }}"></script>
+</body>
+</html>

@@ -4,10 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BOM Manager{% endblock %}</title>
+    {% if request.endpoint in ['login_page', 'auth.login', 'auth.register'] %}
+    <script>
+        (function () {
+            var theme = 'light';
+            try {
+                if (localStorage.getItem('theme') === 'dark') theme = 'dark';
+            } catch (error) {
+                // Storage may be unavailable; keep the default light theme.
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+        }());
+    </script>
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='modern/style.css') }}">
     {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
     {% if current_user.is_authenticated %}
     <div class="app-layout">
         <aside class="sidebar" id="sidebar">

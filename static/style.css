@@ -1,4 +1,26 @@
 :root {
+    color-scheme: light;
+    --control-bg: white;
+    --control-text: #333;
+    --control-readonly-bg: #f1f3f5;
+    --control-readonly-text: #333;
+    --control-disabled-bg: #e9ecef;
+    --control-disabled-text: #626a73;
+    --placeholder-color: #68727d;
+    --focus-border: #26843a;
+    --focus-ring: rgba(38, 132, 58, 0.22);
+    --surface-hover: #e8edf2;
+    --surface-selected: #dcebf8;
+    --surface-search: #fff0c2;
+    --feedback-warning-bg: #fff3cd;
+    --feedback-warning-text: #795600;
+    --feedback-danger-bg: #ffebee;
+    --feedback-danger-text: #b42318;
+    --feedback-success-bg: #e8f5e9;
+    --feedback-success-text: #216e34;
+    --status-success-text: #2e7d32;
+    --status-warning-text: #985600;
+    --status-danger-text: #c62828;
     --bg-primary: #f0f2f5;
     --bg-secondary: white;
     --bg-tertiary: #f8f9fa;
@@ -21,12 +43,35 @@
 }
 
 [data-theme="dark"] {
+    --color-scheme-inherit: dark;
+    color-scheme: dark;
+    --control-bg: #1a1f2e;
+    --control-text: #e4e6eb;
+    --control-readonly-bg: #242b3d;
+    --control-readonly-text: #e4e6eb;
+    --control-disabled-bg: #202635;
+    --control-disabled-text: #a6aeba;
+    --placeholder-color: #a0a9b6;
+    --focus-border: #81c995;
+    --focus-ring: rgba(129, 201, 149, 0.28);
+    --surface-hover: #303b50;
+    --surface-selected: #263e59;
+    --surface-search: #42351d;
+    --feedback-warning-bg: #3b321e;
+    --feedback-warning-text: #ffda85;
+    --feedback-danger-bg: #42272e;
+    --feedback-danger-text: #ffb4ab;
+    --feedback-success-bg: #203b2c;
+    --feedback-success-text: #a5dbad;
+    --status-success-text: #81c995;
+    --status-warning-text: #ffca80;
+    --status-danger-text: #ff8a80;
     --bg-primary: #0f1419;
     --bg-secondary: #1a1f2e;
     --bg-tertiary: #242b3d;
     --text-primary: #e4e6eb;
     --text-secondary: #b0b3b8;
-    --text-muted: #6b7280;
+    --text-muted: #a0a9b6;
     --border-color: #3e4451;
     --border-light: #2d333b;
     --shadow-color: rgba(0,0,0,0.3);
@@ -224,13 +269,12 @@ html[dir="ltr"] .stage-item-new { flex-direction: row; }
 /* کنترل سه حالته */
 .status-tri-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 2px solid var(--border-color); background: var(--bg-tertiary); }
 .status-tri-toggle input[type="radio"] { display: none; }
-.toggle-option { flex: 1; padding: 12px 8px; text-align: center; cursor: default; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; gap: 5px; user-select: none; opacity: 0.5; }
+.form-group .status-tri-toggle .toggle-option { flex: 1; padding: 12px 8px; margin-bottom: 0; text-align: center; cursor: default; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; gap: 5px; user-select: none; opacity: 1; color: var(--text-secondary); }
 .toggle-icon { font-size: 24px; display: block; }
 .toggle-text { font-size: 12px; font-weight: bold; }
-.toggle-not-started, .toggle-in-progress, .toggle-completed { color: var(--text-secondary); }
-.status-tri-toggle input[type="radio"]:checked + .toggle-not-started { background: #F44336; color: white; opacity: 1; }
-.status-tri-toggle input[type="radio"]:checked + .toggle-in-progress { background: #FF9800; color: white; opacity: 1; }
-.status-tri-toggle input[type="radio"]:checked + .toggle-completed { background: #4CAF50; color: white; opacity: 1; }
+.form-group .status-tri-toggle input[type="radio"]:checked + .toggle-not-started { background: var(--feedback-danger-bg); color: var(--feedback-danger-text); }
+.form-group .status-tri-toggle input[type="radio"]:checked + .toggle-in-progress { background: var(--feedback-warning-bg); color: var(--feedback-warning-text); }
+.form-group .status-tri-toggle input[type="radio"]:checked + .toggle-completed { background: var(--feedback-success-bg); color: var(--feedback-success-text); }
 
 /* نوار پیشرفت */
 .progress-container { background: var(--bg-tertiary); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border-color); }
@@ -389,6 +433,90 @@ button:active { transform: scale(0.96); }
 .select-item:hover { border-color: var(--accent-blue); background: var(--bg-secondary); box-shadow: 0 2px 8px var(--shadow-color); }
 .select-item-name { font-weight: bold; font-size: 13px; margin-bottom: 2px; }
 .select-item-info { font-size: 11px; color: var(--text-muted); }
+
+/* Shared controls across classic pages and dynamically rendered forms. */
+:is(input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not([type="file"]), textarea, select) {
+    background: var(--control-bg);
+    color: var(--control-text);
+    caret-color: var(--control-text);
+    border-color: var(--border-color);
+    color-scheme: var(--color-scheme-inherit, light);
+}
+:is(input, textarea)::placeholder {
+    color: var(--placeholder-color);
+    opacity: 1;
+}
+:is(input, textarea)[readonly] {
+    background: var(--control-readonly-bg) !important;
+    color: var(--control-readonly-text) !important;
+    -webkit-text-fill-color: var(--control-readonly-text);
+}
+:is(input, textarea, select):disabled {
+    background: var(--control-disabled-bg) !important;
+    color: var(--control-disabled-text) !important;
+    -webkit-text-fill-color: var(--control-disabled-text);
+    opacity: 1;
+    cursor: not-allowed;
+}
+:is(input, textarea, select):focus {
+    outline: none;
+    border-color: var(--focus-border) !important;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+:is(input, textarea):autofill {
+    box-shadow: 0 0 0 1000px var(--control-bg) inset;
+    color: var(--text-primary);
+}
+:is(input, textarea):-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--control-bg) inset;
+    -webkit-text-fill-color: var(--control-text);
+    caret-color: var(--control-text);
+}
+:is(input, textarea):-webkit-autofill:focus {
+    box-shadow: 0 0 0 1000px var(--control-bg) inset, 0 0 0 3px var(--focus-ring);
+}
+select :is(option, optgroup) { background: var(--control-bg); color: var(--control-text); }
+select option:disabled { color: var(--control-disabled-text); }
+button:disabled { cursor: not-allowed; opacity: 0.6; transform: none; }
+button:disabled:hover { transform: none; box-shadow: none; }
+:is(button, a, summary):focus-visible { outline: 2px solid var(--focus-border); outline-offset: 3px; }
+.btn-add { color: white; }
+.stage-status-btn { color: var(--text-primary); }
+.select-item { color: var(--text-primary); text-align: start; }
+.stage-section-heading { color: var(--text-secondary); }
+.mfr-body { background: var(--bg-secondary); color: var(--text-primary); }
+#field-total_required { font-weight: bold; }
+[data-theme="dark"] :is(input, textarea)[readonly] {
+    color: #e4e6eb !important;
+    background: #242b3d !important;
+    -webkit-text-fill-color: #e4e6eb;
+}
+#shortage-info {
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    background: var(--feedback-warning-bg) !important;
+    color: var(--feedback-warning-text) !important;
+}
+#shortage-info.is-shortage { background: var(--feedback-danger-bg) !important; color: var(--feedback-danger-text) !important; }
+[data-theme="dark"] #shortage-info.is-shortage {
+    background: #42272e !important;
+    color: #ffb4ab !important;
+}
+[data-theme="dark"] #shortage-info.is-shortage #shortage-text { color: #ffb4ab !important; }
+#shortage-info.is-shortage #shortage-text { color: var(--feedback-danger-text) !important; }
+#shortage-info.is-sufficient { background: var(--feedback-success-bg) !important; color: var(--feedback-success-text) !important; }
+#shortage-info.is-sufficient #shortage-text { color: var(--feedback-success-text) !important; }
+
+/* Outrank jsTree's later-loaded vendor theme without overriding inventory text colors. */
+#tree-container.jstree-default .jstree-anchor { color: var(--text-primary); }
+#tree-container.jstree-default .jstree-hovered,
+#tree-container.jstree-default .jstree-anchor:hover { background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--border-color); }
+#tree-container.jstree-default .jstree-clicked,
+#tree-container.jstree-default .jstree-clicked:hover { background: var(--surface-selected); box-shadow: inset 0 0 0 1px var(--focus-border); }
+#tree-container.jstree-default .jstree-search { background: var(--surface-search); font-weight: bold; font-style: normal; }
+#tree-container.jstree-default .jstree-clicked.jstree-search { background: var(--surface-selected); }
+[data-theme="dark"] #tree-container .jstree-ocl { filter: brightness(1.7); }
 
 /* Responsive */
 @media (max-width: 968px) {

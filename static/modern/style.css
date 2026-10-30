@@ -435,6 +435,112 @@ body {
     color: var(--text);
 }
 
+/* Auth tokens are deliberately scoped; other modern pages stay unchanged. */
+body.auth-page {
+    color-scheme: light;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --text-muted: #64748b;
+    --auth-backdrop: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --auth-logo: linear-gradient(135deg, #667eea, #764ba2);
+    --auth-link: var(--primary);
+    --auth-placeholder: #64748b;
+    --auth-readonly-bg: #f1f5f9;
+    --auth-disabled-bg: #e2e8f0;
+    --auth-disabled-text: #64748b;
+    --auth-focus-ring: rgba(99,102,241,0.25);
+    --auth-error-bg: #fee2e2;
+    --auth-error-text: #991b1b;
+    --auth-success-bg: #dcfce7;
+    --auth-success-text: #166534;
+    --auth-warning-bg: #fef3c7;
+    --auth-warning-text: #92400e;
+    --auth-info-bg: #e0e7ff;
+    --auth-info-text: #3730a3;
+}
+
+html[data-theme="dark"] body.auth-page {
+    color-scheme: dark;
+    --bg: #141824;
+    --bg-card: #1e2433;
+    --text: #e4e6eb;
+    --text-secondary: #b7c0ce;
+    --text-muted: #a0a9b6;
+    --border: #46516a;
+    --auth-backdrop: linear-gradient(135deg, #141824 0%, #292341 100%);
+    --auth-logo: linear-gradient(135deg, #a5b4fc, #c4b5fd);
+    --auth-link: #a5b4fc;
+    --auth-placeholder: #a0a9b6;
+    --auth-readonly-bg: #272f42;
+    --auth-disabled-bg: #242b3b;
+    --auth-disabled-text: #a6aeba;
+    --auth-focus-ring: rgba(165,180,252,0.3);
+    --auth-error-bg: #42272e;
+    --auth-error-text: #ffb4ab;
+    --auth-success-bg: #203d31;
+    --auth-success-text: #a6e3b8;
+    --auth-warning-bg: #42371f;
+    --auth-warning-text: #f5d789;
+    --auth-info-bg: #2a3155;
+    --auth-info-text: #c7d2fe;
+}
+
+.auth-page .auth-container { background: var(--auth-backdrop); }
+.auth-page .auth-card { background: var(--bg-card); color: var(--text); }
+.auth-page .auth-logo { background-image: var(--auth-logo); }
+.auth-page .auth-header h1 { color: var(--text); }
+.auth-page .auth-header p { color: var(--text-muted); }
+.auth-page .auth-footer a { color: var(--auth-link); }
+.auth-page .auth-form :is(input, textarea, select) {
+    caret-color: var(--text);
+    accent-color: var(--primary);
+}
+.auth-page .auth-form :is(input, textarea)::placeholder {
+    color: var(--auth-placeholder);
+    opacity: 1;
+}
+.auth-page .auth-form :is(input, textarea)[readonly] { background: var(--auth-readonly-bg); }
+.auth-page .auth-form :is(input, textarea, select):disabled {
+    background: var(--auth-disabled-bg);
+    color: var(--auth-disabled-text);
+    -webkit-text-fill-color: var(--auth-disabled-text);
+    opacity: 1;
+    cursor: not-allowed;
+}
+.auth-page .auth-form :is(input, textarea, select):focus {
+    border-color: var(--auth-link);
+    box-shadow: 0 0 0 3px var(--auth-focus-ring);
+}
+.auth-page :is(button, a, input[type="checkbox"]):focus-visible {
+    outline: 2px solid var(--auth-link);
+    outline-offset: 3px;
+}
+.auth-page button:disabled { opacity: 0.6; cursor: not-allowed; }
+.auth-page .auth-form select :is(option, optgroup) { background: var(--bg-card); color: var(--text); }
+.auth-page .auth-form select option:disabled { color: var(--auth-disabled-text); }
+.auth-page .auth-form :is(input, textarea):autofill {
+    box-shadow: 0 0 0 1000px var(--bg-card) inset;
+    color: var(--text);
+}
+.auth-page .auth-form :is(input, textarea):-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-card) inset;
+    -webkit-text-fill-color: var(--text);
+}
+.auth-page .auth-form :is(input, textarea):-webkit-autofill:focus {
+    box-shadow: 0 0 0 1000px var(--bg-card) inset, 0 0 0 3px var(--auth-focus-ring);
+}
+.auth-page .auth-form :is(input, textarea)[readonly]:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--auth-readonly-bg) inset;
+}
+.auth-page .auth-form :is(input, textarea):disabled:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--auth-disabled-bg) inset;
+    -webkit-text-fill-color: var(--auth-disabled-text);
+}
+.auth-page .auth-msg { background: var(--auth-info-bg); color: var(--auth-info-text); }
+.auth-page .auth-msg:is(.error, .danger) { background: var(--auth-error-bg); color: var(--auth-error-text); }
+.auth-page .auth-msg.success { background: var(--auth-success-bg); color: var(--auth-success-text); }
+.auth-page .auth-msg.warning { background: var(--auth-warning-bg); color: var(--auth-warning-text); }
+
 /* ── Auth ── */
 .auth-container {
     display: flex;

@@ -10,6 +10,13 @@ let partManufacturers = [];
 let allManufacturers = [];
 let expandedStages = {};
 let _autoSaveTimer = null;
+const nodeDrafts = new Map();
+const pendingNodeSaves = new Map();
+const queuedNodeSaves = new Set();
+const persistedStageIds = new Map(); // Per-node temporary identity -> backend ID; never browser storage.
+let saveQueue = Promise.resolve();
+let saveRevision = 0;
+let dataLoadRevision = 0;
 
 // ───── Language / i18n ─────
 const LANG = {
@@ -40,7 +47,10 @@ const LANG = {
         specs: 'مشخصات فنی',
         notes: 'یادداشت',
         quantity: 'تعداد',
-        requiredQuantity: 'تعداد مورد نیاز',
+        requiredQuantity: 'تعداد لازم برای ساخت یک والد',
+        coefficientHelp: 'تعداد لازم برای ساخت یک واحد از والد مستقیم',
+        targetHelp: 'تعداد هدف محصول؛ موجودی آماده از این تعداد کسر می‌شود.',
+        allItems: 'کل اقلام',
         stock: 'موجودی',
         supplier: 'تأمین‌کننده',
         supplierEmail: 'ایمیل تأمین‌کننده',
@@ -103,7 +113,7 @@ const LANG = {
         manufacturing: 'ساخت',
         general: 'عمومی',
         detailText: 'متن جزئیات',
-        orderCount: 'تعداد سفارش',
+        orderCount: 'تعداد هدف محصول',
         totalRequired: 'تعداد مورد نیاز کل',
         progress: 'پیشرفت مراحل ساخت',
         completedCount: 'تکمیل شده',
@@ -184,7 +194,10 @@ const LANG = {
         specs: 'Specifications',
         notes: 'Notes',
         quantity: 'Quantity',
-        requiredQuantity: 'Required Qty',
+        requiredQuantity: 'Units needed per immediate parent',
+        coefficientHelp: 'Units needed to build ONE unit of the immediate parent',
+        targetHelp: 'Product target count; ready stock is deducted from this target.',
+        allItems: 'All Items',
         stock: 'Stock',
         supplier: 'Supplier',
         supplierEmail: 'Supplier Email',
@@ -247,7 +260,7 @@ const LANG = {
         manufacturing: 'Manufacturing',
         general: 'General',
         detailText: 'Detail Text',
-        orderCount: 'Order Count',
+        orderCount: 'Product Target Count',
         totalRequired: 'Total Required',
         progress: 'Production Progress',
         completedCount: 'Completed',
@@ -303,7 +316,7 @@ const LANG = {
     }
 };
 
-let currentLang = localStorage.getItem('appLang') || 'fa';
+let currentLang = localStorage.getItem('appLang') === 'en' ? 'en' : 'fa';
 
 function t(key) {
     return LANG[currentLang][key] || key;
@@ -318,6 +331,10 @@ function toggleLang() {
 
 function applyLang() {
     document.documentElement.setAttribute('dir', t('langDir'));
+    document.documentElement.setAttribute('lang', currentLang);
+    $('#manufacturers-link').text(currentLang === 'fa' ? 'دفتر سازندگان' : 'Manufacturer directory');
+    $('#part-manufacturers-label').text(currentLang === 'fa' ? 'سازندگان مستقل قطعه (جدا از مراحل)' : 'Standalone part manufacturers (separate from stages)');
+    $('#part-manufacturers-add').text(t('addManufacturer'));
     $('#lang-toggle').text(t('langToggle'));
     $('#app-title').text(currentLang === 'fa' ? '🏭 سیستم مدیریت ساخت محصول' : '🏭 BOM & Production Manager');
     $('#settings-link').text('⚙ ' + t('settings'));
@@ -367,7 +384,11 @@ function applyLang() {
     $('#add-schedule-btn-text').text(t('addSchedule'));
     $('#docs-label').text(t('techDocs') + ':');
     $('#progress-label-text').text(t('progress'));
-    $('#stat-total-label').text(t('product'));
+    $('#stat-total-label').text(t('allItems'));
+    if (currentData.nodes[currentNodeId]) {
+        updateInventoryHelp(currentData.nodes[currentNodeId]);
+        refreshDemandViews();
+    }
     $('#stat-done-label').text(t('completedCount'));
     $('#stat-missing-label').text(t('shortage'));
     // modal buttons
@@ -381,7 +402,7 @@ function applyLang() {
 }
 
 $(document).ready(function() {
-    const savedLang = localStorage.getItem('appLang') || 'fa';
+    const savedLang = localStorage.getItem('appLang') === 'en' ? 'en' : 'fa';
     currentLang = savedLang;
     document.documentElement.setAttribute('dir', t('langDir'));
     applyLang();
@@ -395,8 +416,14 @@ $(document).ready(function() {
     const sizeMap = { small: '12px', medium: '14px', large: '16px' };
     document.documentElement.style.fontSize = sizeMap[savedFontSize] || '14px';
 
+    // Shared pages restore preferences but must not initialize BOM controls or requests.
+    if (!document.getElementById('tree-container')) return;
+
     const savedOpened = localStorage.getItem('openedNodes');
-    if (savedOpened) openedNodes = JSON.parse(savedOpened);
+    try {
+        const parsed = savedOpened ? JSON.parse(savedOpened) : [];
+        openedNodes = Array.isArray(parsed) ? parsed : [];
+    } catch (error) { openedNodes = []; }
 
     const actionsDiv = document.querySelector('.form-actions');
     const btnAddAssembly = document.createElement('button');
@@ -420,15 +447,53 @@ $(document).ready(function() {
     loadNotifications();
 });
 
+function validBomData(data) {
+    return !!data && typeof data === 'object' && !!data.nodes && typeof data.nodes === 'object'
+        && !Array.isArray(data.nodes) && Array.isArray(data.root_ids)
+        && Object.values(data.nodes).every(node => node && typeof node === 'object'
+            && ['product', 'assembly', 'part'].includes(node.type))
+        && data.root_ids.every(id => Object.prototype.hasOwnProperty.call(data.nodes, id));
+}
+
 function loadData() {
-    fetch('/api/data')
-        .then(res => res.json())
+    const revision = ++dataLoadRevision;
+    const status = document.getElementById('data-load-status');
+    if (status) { status.className = 'mfg-message'; status.textContent = t('loading'); }
+    return fetch('/api/data')
+        .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
         .then(data => {
+            if (revision !== dataLoadRevision) return;
+            if (!validBomData(data)) throw new Error(currentLang === 'fa' ? 'ساختار پاسخ نامعتبر است' : 'Invalid product-data response');
+            nodeDrafts.forEach((draft, id) => {
+                if (data.nodes[id]) Object.assign(data.nodes[id], JSON.parse(JSON.stringify(draft.payload)));
+            });
             currentData = data;
+            recalculateDemand();
             updateStageSuggestions();
             updateDashboard();
             if (currentMainView === 'tree') renderTree();
-            else if (currentMainView === 'kanban') renderKanban();
+            else if (currentMainView === 'kanban') {
+                renderKanban();
+                if (currentData.nodes[currentNodeId]) showEditForm(currentData.nodes[currentNodeId]);
+            }
+            if (status) status.replaceChildren();
+            return true;
+        }).catch(error => {
+            if (revision !== dataLoadRevision) return false;
+            if (status) {
+                status.className = 'mfg-message mfg-error'; status.replaceChildren();
+                const message = document.createElement('p');
+                message.textContent = (currentLang === 'fa'
+                    ? 'بارگذاری اطلاعات محصولات ناموفق بود. اتصال، ورود به حساب و مسیر /api/data را بررسی کنید. اطلاعات قبلی حفظ شده است؛ فهرست خالی به معنی نبود محصول نیست. '
+                    : 'Product data could not be loaded. Check your connection, sign-in and /api/data availability. Existing data is retained; an empty view does not mean there are no products. ') + error.message;
+                const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'mfg-button';
+                retry.textContent = currentLang === 'fa' ? 'تلاش مجدد' : 'Retry'; retry.onclick = loadData;
+                status.append(message, retry);
+            }
+            return false;
         });
 }
 
@@ -456,7 +521,7 @@ function loadNotifications() {
                     shortageList.append(`
                         <div class="notif-item" onclick="goToNode('${item.id}')">
                             <strong>${item.name}</strong><br>
-                            <span style="color:#d32f2f;">${t('shortage2')}: ${item.shortage}</span>
+                            <span style="color:var(--feedback-danger-text);">${t('shortage2')}: ${item.shortage}</span>
                             <span style="color:var(--text-muted);"> (${t('available')}: ${item.available} / ${t('required')}: ${item.required})</span>
                         </div>
                     `);
@@ -525,14 +590,61 @@ function goToNode(nodeId) {
     }
 }
 
-function getAncestorOrderCount(nodeId) {
-    let node = currentData.nodes[nodeId];
-    while (node) {
-        if (node.type === 'product' && node.order_count > 0) return node.order_count;
-        if (node.parent) node = currentData.nodes[node.parent];
-        else break;
+function nonNegativeInt(value, fallback = 0) {
+    const number = Number(value);
+    return value === '' || value == null || !Number.isFinite(number)
+        ? fallback : Math.max(0, Math.floor(number));
+}
+
+// Demand is passed only from the immediate parent's shortage, never its gross demand.
+function recalculateDemand() {
+    const visited = new Set();
+    Object.values(currentData.nodes).forEach(node => {
+        node.required_total = 0;
+        node.shortage = 0;
+        node.stock_used = 0;
+    });
+    function visit(nodeId, gross) {
+        const node = currentData.nodes[nodeId];
+        if (!node || visited.has(nodeId)) return;
+        visited.add(nodeId);
+        node.required_total = gross;
+        const stock = nonNegativeInt(node.quantity);
+        node.stock_used = Math.min(stock, gross);
+        node.shortage = Math.max(gross - stock, 0);
+        (node.children || []).forEach(childId => {
+            const child = currentData.nodes[childId];
+            if (child) visit(childId, node.shortage * nonNegativeInt(child.required_quantity, 1));
+        });
     }
-    return 1;
+    currentData.root_ids.forEach(id => {
+        const root = currentData.nodes[id];
+        if (root) visit(id, nonNegativeInt(root.order_count));
+    });
+}
+
+function inventoryStatus(node) {
+    return node.shortage === 0 ? 'completed'
+        : (nonNegativeInt(node.quantity) > 0 ? 'in_progress' : 'not_started');
+}
+
+function refreshDemandViews() {
+    recalculateDemand();
+    updateDashboard();
+    calculateShortage();
+    if (currentMainView === 'kanban') renderKanban();
+    else {
+        const tree = $('#tree-container').jstree(true);
+        if (tree) Object.keys(currentData.nodes).forEach(id => {
+            const built = buildTreeNode(id);
+            if (tree.get_node(id)) {
+                tree.set_text(id, built.text);
+                const anchor = document.getElementById(id + '_anchor');
+                if (anchor) anchor.style.color = inventoryStatus(currentData.nodes[id]) === 'completed'
+                    ? 'var(--status-success-text)' : (inventoryStatus(currentData.nodes[id]) === 'in_progress' ? 'var(--status-warning-text)' : 'var(--status-danger-text)');
+            }
+        });
+    }
 }
 
 function getBreadcrumbs(nodeId) {
@@ -564,13 +676,9 @@ function updateBreadcrumbs(nodeId) {
 function updateDashboard() {
     let total = 0, done = 0, missing = 0;
     Object.values(currentData.nodes).forEach(node => {
-        if (node.type === 'part') {
-            total++;
-            if (node.status === 'completed') done++;
-            const orderCount = getAncestorOrderCount(node.id);
-            const totalReq = (node.required_quantity || 1) * orderCount;
-            if ((node.quantity || 0) < totalReq) missing++;
-        }
+        total++;
+        if (node.shortage === 0) done++;
+        if (node.shortage > 0) missing++;
     });
     $('#stat-total').text(total);
     $('#stat-done').text(done);
@@ -653,7 +761,7 @@ function renderTree() {
         // دابل‌کلیک برای ویرایش سریع نام
         var node = $('#tree-container').jstree(true).get_node(e.target);
         if (node && node.id) {
-            openInlineEdit(node.id, 'name', node.text.replace(/^[^\s]+\s/, ''));
+            openInlineEdit(node.id, 'name', currentData.nodes[node.id].name);
         }
     });
 
@@ -688,26 +796,12 @@ function showHoverCard(nodeId, e) {
     let statusText = '';
     let statusColor = '';
 
-    if (node.type === 'part') {
-        const orderCount = getAncestorOrderCount(nodeId);
-        const totalReq = (node.required_quantity || 1) * orderCount;
-        const available = node.quantity || 0;
-        stockText = t('hoverStock') + ': ' + available + ' / ' + t('hoverTotalReq') + ': ' + totalReq;
-
-        if (available >= totalReq) {
-            statusText = t('hoverSufficient');
-            statusColor = '#4CAF50';
-        } else if (available > 0) {
-            statusText = t('hoverPartial');
-            statusColor = '#FF9800';
-        } else {
-            statusText = '🔴 ' + t('hoverShortage');
-            statusColor = '#F44336';
-        }
-    } else {
-        stockText = t('hoverType') + ': ' + (node.type === 'product' ? t('product') : t('assembly'));
-        statusText = '';
-    }
+    stockText = t('hoverStock') + ': ' + nonNegativeInt(node.quantity)
+        + ' / ' + t('hoverTotalReq') + ': ' + node.required_total;
+    const status = inventoryStatus(node);
+    statusText = t('shortage2') + ': ' + node.shortage + ' — '
+        + t(status === 'completed' ? 'hoverSufficient' : (status === 'in_progress' ? 'hoverPartial' : 'hoverShortage'));
+    statusColor = status === 'completed' ? 'var(--status-success-text)' : (status === 'in_progress' ? 'var(--status-warning-text)' : 'var(--status-danger-text)');
 
     $('#hover-card-stock').text(stockText);
     $('#hover-card-status').text(statusText).css('color', statusColor);
@@ -745,18 +839,13 @@ function buildTreeNode(nodeId) {
     } else if (node.type === 'assembly') {
         text = '📦 ' + text;
     } else if (node.type === 'part') {
-        const orderCount = getAncestorOrderCount(nodeId);
-        const totalRequired = (node.required_quantity || 1) * orderCount;
-        const available = node.quantity || 0;
-
-        if (available >= totalRequired) { color = '#4CAF50'; text += ' 🟢'; }
-        else if (available > 0) { color = '#FF9800'; text += ' 🟡'; }
-        else { color = '#F44336'; text += ' 🔴'; }
-
         if (node.partType === 'buy') text = '🛒 ' + text;
         else if (node.partType === 'make') text = '🔧 ' + text;
         else text = '⚙️ ' + text;
     }
+
+    const status = inventoryStatus(node);
+    color = status === 'completed' ? 'var(--status-success-text)' : (status === 'in_progress' ? 'var(--status-warning-text)' : 'var(--status-danger-text)');
 
     return {
         id: nodeId, text: text, icon: false,
@@ -791,21 +880,14 @@ function renderKanban() {
     };
 
     Object.values(currentData.nodes).forEach(node => {
-        if (node.type === 'part') {
-            const orderCount = getAncestorOrderCount(node.id);
-            const totalReq = (node.required_quantity || 1) * orderCount;
-            const available = node.quantity || 0;
-            let status = 'not_started';
-            if (available >= totalReq) status = 'completed';
-            else if (available > 0) status = 'in_progress';
-
-            columns[status].cards.push({
-                id: node.id, name: node.name,
-                code: node.partCode || '-',
-                required: totalReq, available: available,
-                stages: node.stages ? node.stages.length : 0
-            });
-        }
+        const status = inventoryStatus(node);
+        columns[status].cards.push({
+            id: node.id, name: node.name, type: node.type,
+            code: node.partCode || '-',
+            required: node.required_total, available: nonNegativeInt(node.quantity),
+            shortage: node.shortage,
+            stages: node.stages ? node.stages.length : 0
+        });
     });
 
     const board = $('<div class="kanban-board"></div>');
@@ -823,10 +905,11 @@ function renderKanban() {
 
         col.cards.forEach(card => {
             const cardEl = $(`
-                <div class="kanban-card status-${status}" onclick="goToNode('${card.id}')">
+                <div class="kanban-card status-${status.replace(/_/g, '-')}" onclick="goToNode('${card.id}')">
                     <div class="kanban-card-name">${card.name}</div>
                     <div class="kanban-card-info">${t('code')}: ${card.code}</div>
-                    <div class="kanban-card-info">${t('hoverStock')}: ${card.available} / ${card.required}</div>
+                    <div class="kanban-card-info">${t(card.type)} — ${t('hoverStock')}: ${card.available}</div>
+                    <div class="kanban-card-info">${t('totalRequired')}: ${card.required} / ${t('shortage2')}: ${card.shortage}</div>
                     <div class="kanban-card-info">${card.stages} ${t('stagesCount')}</div>
                 </div>
             `);
@@ -848,49 +931,132 @@ function switchTab(tabId) {
 
 // ───── Auto-save ─────
 
-function autoSaveNode() {
-    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
-    $('#save-indicator').text('⏳').fadeIn(150);
-    _autoSaveTimer = setTimeout(function() {
-        _autoSaveTimer = null;
-        _doSaveNode();
-    }, 600);
+function normalizeStageIds(nodeId, stages) {
+    const ids = persistedStageIds.get(nodeId);
+    (stages || []).forEach(stage => {
+        if (!stage.id && stage._tmpId && ids && ids.has(stage._tmpId)) stage.id = ids.get(stage._tmpId);
+    });
 }
 
-function _doSaveNode() {
-    if (!currentNodeId) return;
+function reconcileSavedStageIds(snapshot, savedNode) {
+    const sent = snapshot.payload.stages;
+    if (!sent || !savedNode || !Array.isArray(savedNode.stages)) return;
+    // Only the immutable SENT order is positional. Live/queued lists may have been
+    // edited, reordered or had stages removed while the request was in flight.
+    const returned = savedNode.stages;
+    const known = new Set(sent.filter(stage => stage.id).map(stage => String(stage.id)));
+    const created = returned.filter(stage => !known.has(String(stage.id)));
+    const newStages = sent.filter(stage => !stage.id);
+    if (returned.length !== sent.length || created.length !== newStages.length
+        || !Array.from(known).every(id => returned.some(stage => String(stage.id) === id))
+        || returned.some(stage => !Number.isInteger(stage.id) || stage.id <= 0)
+        || new Set(returned.map(stage => stage.id)).size !== returned.length) {
+        throw new Error(t('saveError') + ': invalid saved stage identities');
+    }
+    let ids = persistedStageIds.get(snapshot.nodeId);
+    if (!ids) { ids = new Map(); persistedStageIds.set(snapshot.nodeId, ids); }
+    newStages.forEach((stage, index) => { if (stage._tmpId) ids.set(stage._tmpId, created[index].id); });
+    const normalizeSnapshot = draft => {
+        if (draft && draft.nodeId === snapshot.nodeId) normalizeStageIds(draft.nodeId, draft.payload.stages);
+    };
+    normalizeSnapshot(snapshot);
+    normalizeSnapshot(nodeDrafts.get(snapshot.nodeId));
+    normalizeSnapshot(pendingNodeSaves.get(snapshot.nodeId));
+    queuedNodeSaves.forEach(normalizeSnapshot);
+    const node = currentData.nodes[snapshot.nodeId];
+    if (node) normalizeStageIds(snapshot.nodeId, node.stages);
+    if (currentNodeId === snapshot.nodeId) {
+        tempStages.forEach(stage => {
+            const oldKey = stage._tmpId && `tmp_${stage._tmpId}`;
+            normalizeStageIds(snapshot.nodeId, [stage]);
+            if (oldKey && stage.id && Object.prototype.hasOwnProperty.call(expandedStages, oldKey)) {
+                expandedStages[`s_${stage.id}`] = expandedStages[oldKey];
+                delete expandedStages[oldKey];
+            }
+        });
+        // Patch identities only: do not replace stages or their in-flight detail edits.
+    }
+}
+
+function captureNodeSave() {
     const node = currentData.nodes[currentNodeId];
-    if (!node) return;
-    const updatedData = {
+    if (!node) return null;
+    const payload = {
         name: $('#field-name').val(), partCode: $('#field-partCode').val(), specs: $('#field-specs').val(),
         notes: $('#field-notes').val(),
-        required_quantity: parseInt($('#field-required_quantity').val()) || 1,
-        quantity: parseInt($('#field-quantity').val()) || 0,
+        required_quantity: node.type === 'product' ? nonNegativeInt(node.required_quantity, 1)
+            : nonNegativeInt($('#field-required_quantity').val(), 1),
+        quantity: nonNegativeInt($('#field-quantity').val()),
         images: node.images || [],
         supplier: $('#field-supplier').val(),
         supplier_email: $('#field-supplier-email').val(),
         status: node.status || 'not_started'
     };
-    if (node.type === 'product') {
-        updatedData.order_count = parseInt($('#field-order_count').val()) || 0;
-    }
+    if (node.type === 'product') payload.order_count = nonNegativeInt($('#field-order_count').val());
     if (node.type === 'part') {
-        updatedData.partType = $('#field-partType').val();
-        updatedData.stages = tempStages;
+        payload.partType = $('#field-partType').val();
+        normalizeStageIds(currentNodeId, tempStages);
+        payload.stages = tempStages.map(stage => {
+            if (!stage.id) stageManufacturerIdentity(stage);
+            const snapshot = { ...stage, manufacturer_ids: stageManufacturerIds(stage) };
+            delete snapshot.manufacturers; // Summaries are read-only; associations persist as ordered IDs.
+            return snapshot;
+        });
     }
-    fetch(`/api/node/${currentNodeId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedData) })
-    .then(() => {
-        loadData();
-        $('#save-indicator').text('✅').fadeIn(150).delay(1200).fadeOut(300);
-    })
-    .catch(e => {
-        $('#save-indicator').text('❌').fadeIn(150).delay(1500).fadeOut(300);
-        showToast('خطا در ذخیره: ' + e.message, true);
-    });
+    const snapshot = { nodeId: currentNodeId, revision: ++saveRevision,
+        payload: JSON.parse(JSON.stringify(payload)) };
+    nodeDrafts.set(snapshot.nodeId, snapshot);
+    Object.assign(node, JSON.parse(JSON.stringify(snapshot.payload)));
+    refreshDemandViews();
+    return snapshot;
+}
+
+function autoSaveNode() {
+    const snapshot = captureNodeSave();
+    if (!snapshot) return;
+    pendingNodeSaves.set(snapshot.nodeId, snapshot);
+    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    $('#save-indicator').stop(true, true).text(t('saving')).fadeIn(150);
+    _autoSaveTimer = setTimeout(function() {
+        _autoSaveTimer = null;
+        const snapshots = Array.from(pendingNodeSaves.values());
+        pendingNodeSaves.clear();
+        snapshots.forEach(snapshot => _doSaveNode(snapshot));
+    }, 600);
+}
+
+function _doSaveNode(snapshot) {
+    if (!snapshot) {
+        autoSaveNode();
+        return;
+    }
+    // Serialize writes so an older response cannot overwrite a newer edit.
+    queuedNodeSaves.add(snapshot);
+    saveQueue = saveQueue.then(async () => {
+        normalizeStageIds(snapshot.nodeId, snapshot.payload.stages);
+        const res = await fetch(`/api/node/${snapshot.nodeId}`, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(snapshot.payload)
+        });
+        if (!res.ok) throw new Error(t('saveError') + ' HTTP ' + res.status);
+        const result = await res.json();
+        if (result.success === false) throw new Error(result.error || t('saveError'));
+        reconcileSavedStageIds(snapshot, result.node);
+        const draft = nodeDrafts.get(snapshot.nodeId);
+        if (draft && draft.revision === snapshot.revision) nodeDrafts.delete(snapshot.nodeId);
+        await loadData();
+        loadNotifications();
+        if (!nodeDrafts.size) $('#save-indicator').stop(true, true).text(t('saved')).fadeIn(150).delay(1200).fadeOut(300);
+    }).catch(e => {
+        // Keep the draft (including stages) available when revisiting the node or retrying.
+        $('#save-indicator').stop(true, true).text(t('saveError')).fadeIn(150);
+        showToast(t('saveError') + ': ' + e.message, true);
+    }).finally(() => queuedNodeSaves.delete(snapshot));
+    return saveQueue;
 }
 
 function bindAutoSave() {
-    $('#field-name, #field-partCode, #field-specs, #field-notes, #field-order_count, #field-required_quantity, #field-quantity, #field-supplier, #field-supplier-email, #field-partType').off('.autosave').on('change.autosave keyup.autosave', function() {
+    $('#field-name, #field-partCode, #field-specs, #field-notes, #field-order_count, #field-required_quantity, #field-quantity, #field-supplier, #field-supplier-email, #field-partType').off('.autosave').on('input.autosave change.autosave', function() {
         autoSaveNode();
     });
     $('#field-name, #field-partCode, #field-supplier, #field-supplier-email').off('.autosaveEnter').on('keypress.autosaveEnter', function(e) {
@@ -914,8 +1080,10 @@ function showEditForm(node) {
     $('#field-partCode').val(node.partCode || '');
     $('#field-specs').val(node.specs || '');
     $('#field-notes').val(node.notes || '');
-    $('#field-required_quantity').val(node.required_quantity || 1);
+    $('#field-required_quantity').val(nonNegativeInt(node.required_quantity, 1));
     $('#field-quantity').val(node.quantity || 0);
+    $('#field-supplier').val(node.supplier || '');
+    $('#field-supplier-email').val(node.supplier_email || '');
 
     if (node.type === 'product') {
         $('#order-count-group').show();
@@ -924,14 +1092,11 @@ function showEditForm(node) {
         $('#order-count-group').hide();
     }
 
-    if (node.type === 'part') {
-        const orderCount = getAncestorOrderCount(currentNodeId);
-        const totalRequired = (node.required_quantity || 1) * orderCount;
-        $('#total-required-group').show();
-        $('#field-total_required').val(totalRequired);
-    } else {
-        $('#total-required-group').hide();
-    }
+    $('#required-quantity-group').toggle(node.type !== 'product');
+    $('#field-quantity').prop('disabled', false);
+    updateInventoryHelp(node);
+    $('#total-required-group').show();
+    $('#field-total_required').val(node.required_total);
 
     calculateShortage();
     renderImageGallery(node.images || []);
@@ -944,12 +1109,7 @@ function showEditForm(node) {
         $('#tab-btn-schedule').hide();
         $('#field-partType').val(node.partType || '');
 
-        const required = parseInt(node.required_quantity) || 1;
-        const available = parseInt(node.quantity) || 0;
-        const orderCount = getAncestorOrderCount(currentNodeId);
-        const totalReq = required * orderCount;
-        const autoStatus = available >= totalReq ? 'completed' : (available > 0 ? 'in_progress' : 'not_started');
-        node.status = autoStatus;
+        const autoStatus = inventoryStatus(node);
 
         $(`input[name="status"][value="${autoStatus}"]`).prop('checked', true);
 
@@ -972,9 +1132,9 @@ function showEditForm(node) {
         loadAllManufacturers();
     } else if (node.type === 'product') {
         $('#tab-btn-mfg').hide();
-        $('#tab-btn-schedule').show();
+        $('#tab-btn-schedule').hide();
         $('#tab-btn-docs').hide();
-        loadSchedulesForProduct(currentNodeId);
+        $('#progress-container').hide();
     } else {
         $('#tab-btn-mfg').hide();
         $('#tab-btn-schedule').hide();
@@ -983,6 +1143,11 @@ function showEditForm(node) {
         if ($('.tab-btn.active').attr('onclick') === "switchTab('tab-mfg')" || $('.tab-btn.active').attr('onclick') === "switchTab('tab-schedule')") {
             switchTab('tab-general');
         }
+    }
+    $('#tab-btn-schedule').hide();
+    if ($('#tab-schedule').hasClass('active')
+        || (!isPart && ($('#tab-mfg').hasClass('active') || $('#tab-docs').hasClass('active')))) {
+        switchTab('tab-general');
     }
     bindAutoSave();
 }
@@ -1061,28 +1226,29 @@ function closeModal() {
     document.getElementById('image-modal').style.display = 'none';
 }
 
+function updateInventoryHelp(node) {
+    const parent = currentData.nodes[node.parent];
+    $('#coefficient-help').text(t('coefficientHelp') + (parent ? ': ' + parent.name : ''));
+    $('#order-count-help').text(t('targetHelp'));
+}
+
 function calculateShortage() {
     const node = currentData.nodes[currentNodeId];
     if (!node) return;
-    const orderCount = getAncestorOrderCount(currentNodeId);
-    const required = (parseInt(node.required_quantity) || 1) * orderCount;
-    const available = parseInt(node.quantity) || 0;
-    const shortage = required - available;
-    const infoDiv = $('#shortage-info');
-    const textSpan = $('#shortage-text');
-    if (shortage > 0) {
-        infoDiv.show(); infoDiv.css('background', '#ffebee');
-        textSpan.html(`<strong>${shortage}</strong> ${t('shortage2')}! (${t('hoverTotalReq')}: ${required}, ${t('available')}: ${available})`);
-        textSpan.css('color', '#d32f2f');
-    } else if (shortage === 0) {
-        infoDiv.show(); infoDiv.css('background', '#e8f5e9');
-        textSpan.html('🟢 ' + t('hoverSufficient'));
-        textSpan.css('color', '#2e7d32');
-    } else {
-        infoDiv.show(); infoDiv.css('background', '#e3f2fd');
-        textSpan.html(`<strong>${Math.abs(shortage)}</strong>`);
-        textSpan.css('color', '#1976d2');
-    }
+    $('#field-total_required').val(node.required_total).css({
+        backgroundColor: document.documentElement.dataset.theme === 'dark' ? '#242b3d' : '#f1f3f5',
+        color: document.documentElement.dataset.theme === 'dark' ? '#e4e6eb' : '#333'
+    });
+    const missing = node.shortage > 0;
+    const dark = document.documentElement.dataset.theme === 'dark';
+    const feedbackColors = dark
+        ? (missing ? ['#42272e', '#ffb4ab'] : ['#203b2c', '#a5dbad'])
+        : (missing ? ['#ffebee', '#b42318'] : ['#e8f5e9', '#216e34']);
+    $('#shortage-info').toggleClass('is-shortage', missing).toggleClass('is-sufficient', !missing).show()
+        .css({ backgroundColor: feedbackColors[0], color: feedbackColors[1] });
+    $('#shortage-text').css('color', feedbackColors[1])
+        .text(`${t('shortage2')}: ${node.shortage} (${t('hoverTotalReq')}: ${node.required_total}, ${t('available')}: ${nonNegativeInt(node.quantity)})`);
+    $(`input[name="status"][value="${inventoryStatus(node)}"]`).prop('checked', true);
 }
 
 function renderStages() {
@@ -1109,7 +1275,8 @@ function renderStages() {
                 <span class="stage-drag-handle" draggable="true" style="cursor: grab; color:var(--text-muted); user-select: none; -webkit-user-select: none;">☰</span>
                 <div style="flex:1;min-width:0;" ondblclick="toggleStageExpand(${idx})">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span class="stage-name">${stage.name}</span>
+                        <span class="stage-name">${escapeHtml(stage.name)}</span>
+                        <button type="button" class="mfg-button" onclick="toggleStageExpand(${idx})" aria-expanded="${isExpanded}" aria-controls="stage-expanded-${idx}" style="padding:2px 6px;font-size:11px;">${currentLang === 'fa' ? 'جزئیات و سازندگان' : 'Details & manufacturers'}</button>
                         <div class="stage-status-btns">
                             <button class="stage-status-btn ${status === 'not_started' ? 'active-not-started' : ''}" onclick="setStageStatus(${idx}, 'not_started')" title="${t('notStarted')}">🔴</button>
                             <button class="stage-status-btn ${status === 'in_progress' ? 'active-in-progress' : ''}" onclick="setStageStatus(${idx}, 'in_progress')" title="${t('inProgress')}">🟡</button>
@@ -1124,7 +1291,7 @@ function renderStages() {
                     </div>
 
                     ${isExpanded ? `
-                    <div class="stage-expanded" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-color);">
+                    <div id="stage-expanded-${idx}" class="stage-expanded" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-color);">
                         <div style="background:var(--bg-tertiary);padding:8px;border-radius:6px;margin-bottom:8px;">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                                 <strong style="font-size:12px;"> ${t('stageDetails')}</strong>
@@ -1136,11 +1303,11 @@ function renderStages() {
                         </div>
                         <div style="background:var(--bg-tertiary);padding:8px;border-radius:6px;">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                                <strong style="font-size:12px;">🏭 ${t('manufacturers')}</strong>
-                                <button onclick="showAddManufacturerToPart()" class="btn-small" style="padding:2px 8px;font-size:11px;">➕ ${t('addManufacturer')}</button>
+                                <strong style="font-size:12px;">${currentLang === 'fa' ? 'سازندگان جایگزین این مرحله (به ترتیب)' : 'Stage fallback manufacturers (ordered)'}</strong>
+                                <button onclick="showStageManufacturerPicker(${idx})" class="btn-small" style="padding:2px 8px;font-size:11px;">${t('addManufacturer')}</button>
                             </div>
-                            <div id="part-manufacturers-list" class="manufacturers-list">
-                                ${renderPartManufacturersList()}
+                            <div id="stage-manufacturers-${idx}" class="manufacturers-list">
+                                ${renderStageManufacturersList(stage, idx)}
                             </div>
                         </div>
                     </div>
@@ -1191,7 +1358,6 @@ function renderStages() {
 
         if (isExpanded) {
             loadStageDetails(idx, stage);
-            refreshManufacturersList();
         }
     });
     updateProgressBar();
@@ -1330,27 +1496,153 @@ function removeStageDetail(idx, di) {
     });
 }
 
-// ───── Manufacturers ─────
+// Stage associations use only the classic node autosave payload, never a stage PUT.
+function stageManufacturerIds(stage) {
+    const source = Array.isArray(stage.manufacturer_ids) ? stage.manufacturer_ids
+        : (Array.isArray(stage.manufacturers) ? stage.manufacturers.map(m => m.id) : []);
+    return Array.from(new Set(source.map(Number).filter(id => Number.isInteger(id) && id > 0)));
+}
+
+function stageManufacturerIdentity(stage) {
+    if (stage.id) return 'id:' + String(stage.id).replace(/^s_/, '');
+    if (!stage._tmpId) stage._tmpId = 'mfr_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    return 'tmp:' + stage._tmpId;
+}
+
+function resolveManufacturerStage(context) {
+    if (!context || context.nodeId !== currentNodeId) return null;
+    const index = tempStages.findIndex(stage => stageManufacturerIdentity(stage) === context.stageKey
+        || (stage._tmpId && 'tmp:' + stage._tmpId === context.stageKey));
+    return index < 0 ? null : { stage: tempStages[index], index };
+}
+
+function renderStageManufacturersList(stage, idx) {
+    const ids = stageManufacturerIds(stage);
+    if (!ids.length) return '<p class="mfg-hint">' + t('noManufacturer') + '</p>';
+    return ids.map((id, order) => {
+        const m = allManufacturers.find(m => Number(m.id) === id)
+            || (stage.manufacturers || []).find(m => Number(m.id) === id) || { id, name: '#' + id };
+        const inactive = !ManufacturerUI.isActive(m);
+        return `<div class="mfg-stage-row"><strong dir="auto">${order + 1}. ${ManufacturerUI.esc(m.name)}</strong>
+            ${inactive ? '<span class="mfg-chip mfg-inactive">' + ManufacturerUI.tr('inactive') + '</span>' : ''}
+            ${ManufacturerUI.summary(m)}
+            <div class="mfg-actions">
+                <button type="button" class="mfg-button" onclick="moveStageManufacturer(${idx},${order},-1)" ${order === 0 ? 'disabled' : ''} aria-label="${currentLang === 'fa' ? 'بالا' : 'Move up'}">↑</button>
+                <button type="button" class="mfg-button" onclick="moveStageManufacturer(${idx},${order},1)" ${order === ids.length - 1 ? 'disabled' : ''} aria-label="${currentLang === 'fa' ? 'پایین' : 'Move down'}">↓</button>
+                <button type="button" class="mfg-button" onclick="removeStageManufacturer(${idx},${order})">${t('delete')}</button>
+            </div></div>`;
+    }).join('');
+}
+
+function refreshStageManufacturerLists() {
+    tempStages.forEach((stage, idx) => {
+        const container = document.getElementById('stage-manufacturers-' + idx);
+        if (container) container.innerHTML = renderStageManufacturersList(stage, idx);
+    });
+}
+
+function moveStageManufacturer(idx, order, direction) {
+    const stage = tempStages[idx]; if (!stage) return;
+    const ids = stageManufacturerIds(stage); const next = order + direction;
+    if (next < 0 || next >= ids.length || ![-1, 1].includes(direction)) return;
+    [ids[order], ids[next]] = [ids[next], ids[order]];
+    stage.manufacturer_ids = ids; refreshStageManufacturerLists(); autoSaveNode();
+}
+
+function removeStageManufacturer(idx, order) {
+    const stage = tempStages[idx]; if (!stage) return;
+    const ids = stageManufacturerIds(stage); if (order < 0 || order >= ids.length) return;
+    ids.splice(order, 1); stage.manufacturer_ids = ids; refreshStageManufacturerLists(); autoSaveNode();
+}
+
+function addStageManufacturer(context, manufacturer) {
+    const target = resolveManufacturerStage(context);
+    const id = Number(manufacturer && manufacturer.id);
+    if (!target || !Number.isInteger(id) || id <= 0) return false;
+    const ids = stageManufacturerIds(target.stage); if (ids.includes(id)) return false;
+    target.stage.manufacturer_ids = [...ids, id];
+    allManufacturers = allManufacturers.filter(m => Number(m.id) !== id).concat(manufacturer);
+    refreshStageManufacturerLists(); autoSaveNode(); return true;
+}
+
+function showStageManufacturerPicker(idx) {
+    const stage = tempStages[idx]; if (!stage) return;
+    const context = { nodeId: currentNodeId, stageKey: stageManufacturerIdentity(stage) };
+    const ui = ManufacturerUI; const view = ui.modal(t('selectManufacturer') + ' — ' + stage.name);
+    const filters = document.createElement('div'); filters.className = 'mfg-picker-filters';
+    const search = document.createElement('input'); search.type = 'search'; search.placeholder = ui.tr('search'); search.setAttribute('aria-label', ui.tr('search'));
+    const active = document.createElement('select'); active.setAttribute('aria-label', ui.tr('active'));
+    active.add(new Option(ui.tr('active'), 'true')); active.add(new Option(ui.tr('all'), 'all')); active.add(new Option(ui.tr('inactive'), 'false'));
+    const category = document.createElement('select'); category.setAttribute('aria-label', ui.tr('category'));
+    const tags = document.createElement('div'); const metadataError = document.createElement('div');
+    const hint = document.createElement('p'); hint.className = 'mfg-hint'; hint.textContent = ui.tr('tagHint');
+    filters.append(search, active, category, tags, hint, metadataError); view.card.append(filters);
+    const status = document.createElement('div'); status.setAttribute('aria-live', 'polite'); const results = document.createElement('div'); results.className = 'mfg-picker-results'; view.card.append(status, results);
+    let revision = 0; let timer;
+    function valid() { return view.overlay.isConnected && !!resolveManufacturerStage(context); }
+    async function reload() {
+        if (!valid()) { view.close(); return; }
+        const own = ++revision; status.className = 'mfg-message'; status.textContent = ui.tr('loading'); results.replaceChildren();
+        try {
+            const data = await ui.list('/manufacturers?' + ui.query({ q: search.value, active: active.value, category_id: category.value, tag_ids: ui.selectedTags(tags) }));
+            if (!valid() || own !== revision) return;
+            const target = resolveManufacturerStage(context); const ids = stageManufacturerIds(target.stage);
+            const available = data.filter(m => !ids.includes(Number(m.id)) && (active.value !== 'true' || ui.isActive(m)));
+            status.textContent = available.length ? '' : ui.tr('empty');
+            available.forEach(m => {
+                const row = document.createElement('div'); row.className = 'mfg-picker-result';
+                row.innerHTML = `<strong dir="auto">${ui.esc(m.name)}</strong> ${!ui.isActive(m) ? '<span class="mfg-chip mfg-inactive">' + ui.tr('inactive') + '</span>' : ''}${ui.summary(m)}`;
+                const add = document.createElement('button'); add.type = 'button'; add.className = 'mfg-button'; add.textContent = t('add');
+                add.onclick = () => { if (valid() && addStageManufacturer(context, m)) reload(); }; row.append(add); results.append(row);
+            });
+        } catch (error) { if (valid() && own === revision) ui.errorMessage(status, error, reload); }
+    }
+    async function metadata() {
+        try { await ui.loadMetadata(); if (!valid()) return; ui.categoryOptions(category, ui.tr('anyCategory')); ui.tagChoices(tags, []); metadataError.replaceChildren(); }
+        catch (error) { if (valid()) ui.errorMessage(metadataError, error, metadata); }
+    }
+    search.oninput = () => { clearTimeout(timer); timer = setTimeout(reload, 250); };
+    active.onchange = reload; category.onchange = reload; tags.onchange = reload;
+    const create = document.createElement('button'); create.type = 'button'; create.className = 'mfg-button mfg-primary'; create.textContent = t('createManufacturer');
+    create.onclick = () => {
+        if (!valid()) { view.close(); return; }
+        ui.openEditor(null, m => {
+            if (!valid()) return;
+            if (m && m.id) allManufacturers = allManufacturers.filter(item => Number(item.id) !== Number(m.id)).concat(m);
+            reload(); // Return to the picker; creating does not automatically attach or route.
+        });
+    };
+    const directory = document.createElement('a'); directory.href = '/manufacturers'; directory.target = '_blank'; directory.rel = 'noopener'; directory.className = 'mfg-button'; directory.textContent = ui.tr('title');
+    view.card.append(create, directory); metadata(); reload(); search.focus();
+}
+
+// ───── Standalone part manufacturers (kept separate) ─────
 
 function loadPartManufacturers(partId) {
+    partManufacturers = [];
+    refreshManufacturersList();
     const pid = parseInt(partId.toString().replace(/^[a-z]/, ''));
     if (isNaN(pid)) return;
     fetch(`/api/v2/parts/${pid}/manufacturers`)
         .then(res => res.json())
         .then(res => {
-            if (res.success) {
+            if (res.success && partId === currentNodeId && Array.isArray(res.data)) {
                 partManufacturers = res.data;
                 refreshManufacturersList();
             }
         }).catch(e => console.error('loadPartManufacturers error:', e));
 }
 
+let manufacturerLoadRevision = 0;
 function loadAllManufacturers() {
-    fetch('/api/v2/manufacturers')
-        .then(res => res.json())
-        .then(res => {
-            if (res.success) allManufacturers = res.data;
-        });
+    const revision = ++manufacturerLoadRevision;
+    return ManufacturerUI.list('/manufacturers?active=all').then(data => {
+        if (revision !== manufacturerLoadRevision) return;
+        allManufacturers = data;
+        refreshStageManufacturerLists();
+    }).catch(error => {
+        showToast(ManufacturerUI.tr('failed') + ' ' + error.message, true);
+    });
 }
 
 function renderPartManufacturersList() {
@@ -1416,22 +1708,19 @@ function renderManufacturerInfo(m) {
 }
 
 function showAddManufacturerToPart() {
-    const unused = allManufacturers.filter(m => !partManufacturers.some(pm => pm.id === m.id));
+    const nodeId = currentNodeId;
+    const unused = allManufacturers.filter(m => ManufacturerUI.isActive(m)
+        && !partManufacturers.some(pm => Number(pm.id) === Number(m.id)));
     const listContainer = $('#mfr-select-list');
     listContainer.empty();
     if (unused.length === 0) {
-        listContainer.html('<div style="padding:20px;text-align:center;color:var(--text-muted);">' + t('allAdded') + '</div>');
+        listContainer.text(t('allAdded'));
     } else {
-        unused.forEach((m, i) => {
-            const info = [];
-            if (m.emails && m.emails.length) info.push(m.emails[0].email);
-            if (m.phones && m.phones.length) info.push(m.phones[0].phone);
-            listContainer.append(`
-                <div class="select-item" onclick="addManufacturerToPart(${m.id});closeMfrSelectModal();">
-                    <div class="select-item-name">${escapeHtml(m.name)}</div>
-                    <div class="select-item-info">${info.join(' | ')}</div>
-                </div>
-            `);
+        unused.forEach(m => {
+            const row = document.createElement('button'); row.type = 'button'; row.className = 'select-item';
+            row.innerHTML = `<div class="select-item-name">${ManufacturerUI.esc(m.name)}</div>${ManufacturerUI.summary(m)}`;
+            row.onclick = () => { if (nodeId === currentNodeId) addManufacturerToPart(m.id); closeMfrSelectModal(); };
+            listContainer.append(row);
         });
     }
     $('#mfr-select-modal').fadeIn(150);
@@ -1442,24 +1731,12 @@ function closeMfrSelectModal() {
 }
 
 function showCreateManufacturerForm() {
-    $('#mfr-form-title').text(t('createManufacturer'));
-    $('#mfr-name').val('');
-    $('#mfr-phone').val('');
-    $('#mfr-address').val('');
-    $('#mfr-notes').val('');
-    $('#mfr-emails-container').html(`
-        <div class="modal-multi-row">
-            <input type="email" class="mfr-email-input" placeholder="example@company.com">
-        </div>
-    `);
-    $('#mfr-socials-container').html(`
-        <div class="modal-multi-row">
-            <input type="text" class="mfr-social-platform" placeholder="پلتفرم (Telegram, Instagram, ...)" style="width:40%;">
-            <input type="text" class="mfr-social-handle" placeholder="آیدی (@username)" style="width:55%;">
-        </div>
-    `);
-    window._editingMfrId = null;
-    $('#mfr-form-modal').fadeIn(150);
+    const nodeId = currentNodeId;
+    ManufacturerUI.openEditor(null, () => {
+        loadAllManufacturers().then(() => {
+            if (currentNodeId === nodeId) showAddManufacturerToPart();
+        });
+    });
 }
 
 function closeMfrFormModal() {
@@ -1526,7 +1803,7 @@ function submitMfrForm() {
             if (r.success) {
                 allManufacturers.push(r.data);
                 closeMfrFormModal();
-                addManufacturerToPart(r.data.id);
+                showAddManufacturerToPart();
             } else {
                 showAlertModal('خطا در ایجاد سازنده: ' + (r.error || 'نامشخص'));
             }
@@ -1535,7 +1812,8 @@ function submitMfrForm() {
 }
 
 function addManufacturerToPart(mfrId) {
-    const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
+    const nodeId = currentNodeId;
+    const pid = parseInt(nodeId.toString().replace(/^[a-z]/, ''));
     if (isNaN(pid)) { showAlertModal('خطا: قطعه شناسه معتبری ندارد'); return; }
     fetch(`/api/v2/parts/${pid}/manufacturers`, {
         method: 'POST',
@@ -1543,6 +1821,7 @@ function addManufacturerToPart(mfrId) {
         body: JSON.stringify({ manufacturer_id: mfrId })
     }).then(res => res.json()).then(r => {
         if (r.success) {
+            if (nodeId !== currentNodeId) return;
             partManufacturers.push(r.data);
             refreshManufacturersList();
         } else {
@@ -1554,15 +1833,18 @@ function addManufacturerToPart(mfrId) {
 }
 
 function removeManufacturerFromPart(mi) {
-    showConfirmModal(t('delete') + ' "' + partManufacturers[mi].name + '"?', function(result) {
-        if (!result) return;
-        const mfr = partManufacturers[mi];
-        const pid = parseInt(currentNodeId.toString().replace(/^[a-z]/, ''));
+    const nodeId = currentNodeId;
+    const mfr = partManufacturers[mi]; if (!mfr) return;
+    showConfirmModal(t('delete') + ' "' + mfr.name + '"?', function(result) {
+        if (!result || nodeId !== currentNodeId) return;
+        const pid = parseInt(nodeId.toString().replace(/^[a-z]/, ''));
         if (isNaN(pid)) return;
         fetch(`/api/v2/parts/${pid}/manufacturers/${mfr.id}`, { method: 'DELETE' })
             .then(res => res.json()).then(r => {
                 if (r.success) {
-                    partManufacturers.splice(mi, 1);
+                    if (nodeId !== currentNodeId) return;
+                    const index = partManufacturers.findIndex(item => Number(item.id) === Number(mfr.id));
+                    if (index >= 0) partManufacturers.splice(index, 1);
                     mfrExpandState[mi] = false;
                     refreshManufacturersList();
                 } else {
@@ -1955,7 +2237,8 @@ function closeProductSelectModal() {
 // ───── Toast Notification ─────
 function showToast(message, isError) {
     $('.toast').remove();
-    const toast = $(`<div class="toast" style="background:${isError ? 'var(--accent-red)' : 'var(--accent-green)'};">${isError ? '✕' : '✅'} ${message}</div>`);
+    const toast = $(`<div class="toast" style="background:${isError ? 'var(--accent-red)' : 'var(--accent-green)'};"></div>`);
+    toast.text((isError ? '✕ ' : '✅ ') + message);
     $('body').append(toast);
     setTimeout(() => toast.remove(), 2500);
 }

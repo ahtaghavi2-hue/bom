@@ -10,3 +10,9 @@ build/
 .venv/
 venv/
 reserve/
+backups/
+*.sqlite
+_browser_final_check/
+_dark_review_check/
+_recovery/
+.pytest_cache/

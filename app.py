@@ -19,6 +19,11 @@ from models import Product, Assembly, Part, Stage, Image, Document, Setting, Use
 from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
 from auth import auth_bp
 from api_v2 import api_bp
+from bom_calculation import attach_calculations, validate_quantities
+from bom_inventory_migration import ensure_inventory_schema
+from manufacturer_migration import ensure_manufacturer_schema
+from manufacturer_service import validate_ids, replace_stage_manufacturers, stage_manufacturers
+from werkzeug.exceptions import Forbidden
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -28,6 +33,25 @@ login_manager.init_app(app)
 mail.init_app(app)
 migrate.init_app(app, db)
 cors.init_app(app)
+
+def _ensure_inventory_schema():
+    if not app.extensions.get('bom_inventory_schema_ready'):
+        backup = ensure_inventory_schema(db.engine)
+        if backup:
+            app.logger.info('Inventory migration backup: %s', backup)
+        app.extensions['bom_inventory_schema_ready'] = True
+    if not app.extensions.get('manufacturer_schema_ready'):
+        backup = ensure_manufacturer_schema(db.engine)
+        if backup:
+            app.logger.info('Manufacturer migration backup: %s', backup)
+        app.extensions['manufacturer_schema_ready'] = True
+
+
+@app.before_request
+def prepare_inventory_schema():
+    # Runs before login/user loading or any route ORM queries; not on import.
+    _ensure_inventory_schema()
+
 
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'لطفاً ابتدا وارد سیستم شوید'
@@ -68,6 +92,7 @@ def _build_node_dict(obj, typ):
         partCode = p.code or ''
         specs = p.specs or ''
         order_count = p.order_count or 0
+        quantity = p.quantity if p.quantity is not None else 0
         children = [f'a{a.id}' for a in Assembly.query.filter_by(product_id=p.id, parent_id=None).all()]
         for a in Assembly.query.filter_by(product_id=p.id).all():
             for img in a.images.all():
@@ -77,6 +102,8 @@ def _build_node_dict(obj, typ):
         node_id = f'a{a.id}'
         parent = f'p{a.product_id}' if not a.parent_id else f'a{a.parent_id}'
         notes = a.description or ''
+        quantity = a.quantity if a.quantity is not None else 0
+        required_quantity = a.required_quantity if a.required_quantity is not None else 1
         children = [f'r{part.id}' for part in Part.query.filter_by(assembly_id=a.id).all()]
         for sub in Assembly.query.filter_by(parent_id=a.id).all():
             children.append(f'a{sub.id}')
@@ -92,10 +119,11 @@ def _build_node_dict(obj, typ):
         partType = r.part_type or ''
         status = r.status or 'not_started'
         quantity = r.quantity or 0
-        required_quantity = r.required_quantity or 1
+        required_quantity = r.required_quantity if r.required_quantity is not None else 1
         supplier = r.supplier or ''
         for s in r.stages.order_by(Stage.sort_order).all():
             stages.append({
+                'id': s.id,
                 'name': s.name,
                 'status': s.status or 'not_started',
                 'estimated_material_cost': s.estimated_material_cost or 0,
@@ -106,6 +134,7 @@ def _build_node_dict(obj, typ):
                 'actual_overhead': s.actual_overhead or 0,
                 'estimated_hours': s.estimated_hours or 0,
                 'actual_hours': s.actual_hours or 0,
+                **stage_manufacturers(s),
             })
         for img in r.images.all():
             images.append({'url': img.url, 'label': img.label or 'طراحی'})
@@ -122,6 +151,7 @@ def _build_node_dict(obj, typ):
     }
 
 def load_data():
+    _ensure_inventory_schema()
     nodes = {}
     root_ids = []
     for p in Product.query.all():
@@ -134,9 +164,15 @@ def load_data():
     for r in Part.query.all():
         nd = _build_node_dict(r, 'part')
         nodes[nd['id']] = nd
-    return {'nodes': nodes, 'root_ids': root_ids}
+    return attach_calculations({'nodes': nodes, 'root_ids': root_ids})
+
+
+app.extensions['bom_load_data'] = load_data
+
 
 def _resolve_node(node_id):
+    if not isinstance(node_id, str) or not re.fullmatch(r'[par][0-9]+', node_id):
+        return None, None
     if node_id.startswith('p'):
         p = db.session.get(Product, int(node_id[1:]))
         return p, 'product' if p else None
@@ -159,17 +195,15 @@ def _parent_node_id(obj, typ):
     return None
 
 def get_ancestor_order_count(node_id, data):
+    """Compatibility helper: return root target, never a fallback demand of one."""
     node = data['nodes'].get(node_id)
-    if not node:
-        return 1
-    while node:
-        if node.get('type') == 'product' and node.get('order_count', 0) > 0:
-            return node['order_count']
-        if node.get('parent'):
-            node = data['nodes'].get(node['parent'])
-        else:
-            break
-    return 1
+    seen = set()
+    while node and node['id'] not in seen:
+        seen.add(node['id'])
+        if node.get('type') == 'product':
+            return node.get('order_count') or 0
+        node = data['nodes'].get(node.get('parent'))
+    return 0
 
 # ───── Classic Auth Routes ─────
 
@@ -200,6 +234,13 @@ def logout_page():
 def index():
     return render_template('index.html')
 
+
+@app.route('/manufacturers')
+@login_required
+def manufacturers_page():
+    return render_template('manufacturers.html')
+
+
 @app.route('/api/data', methods=['GET'])
 @login_required
 def get_data():
@@ -212,10 +253,9 @@ def get_notifications():
     notifications = {'shortage': [], 'orders_pending': [], 'in_progress': []}
     for node_id, node in data['nodes'].items():
         if node['type'] == 'part':
-            order_count = get_ancestor_order_count(node_id, data)
-            total_req = node.get('required_quantity', 1) * order_count
-            available = node.get('quantity', 0)
-            if available < total_req:
+            total_req = node['required_total']
+            available = node['quantity']
+            if node['shortage'] > 0:
                 notifications['shortage'].append({
                     'id': node_id, 'name': node['name'],
                     'required': total_req, 'available': available,
@@ -233,101 +273,151 @@ def get_notifications():
             })
     return jsonify(notifications)
 
+_STAGE_FIELDS = ('name', 'status', 'estimated_material_cost', 'actual_material_cost',
+                 'estimated_labor_cost', 'actual_labor_cost', 'estimated_overhead',
+                 'actual_overhead', 'estimated_hours', 'actual_hours')
+
+
+def _apply_node_fields(obj, typ, req):
+    numeric = ('quantity', 'order_count') if typ == 'product' else ('quantity', 'required_quantity')
+    values = validate_quantities(req, numeric)
+    if typ == 'part' and 'stages' in req:
+        if not isinstance(req['stages'], list) or not all(isinstance(s, dict) for s in req['stages']):
+            raise ValueError('stages must be a list of objects')
+        existing_stages = obj.stages.order_by(Stage.sort_order, Stage.id).all() if obj.id is not None else []
+        stages_by_id = {stage.id: stage for stage in existing_stages}
+        supplied_ids = set()
+        for payload in req['stages']:
+            if 'id' not in payload:
+                continue
+            stage_id = payload['id']
+            if type(stage_id) is not int or stage_id not in stages_by_id:
+                raise ValueError('Stage id must belong to this part')
+            if stage_id in supplied_ids:
+                raise ValueError('Duplicate stage id')
+            supplied_ids.add(stage_id)
+        # Legacy lists without any IDs retain positional matching. In mixed
+        # lists, an ID-less entry is new, never an implicit match to an old stage.
+        stage_matches = [
+            stages_by_id[payload['id']] if 'id' in payload else
+            existing_stages[idx] if not supplied_ids and idx < len(existing_stages) else None
+            for idx, payload in enumerate(req['stages'])
+        ]
+        # Classic autosaves include serialized associations. Only explicit
+        # changes require the same admin/engineer policy as the V2 endpoint.
+        # Check the whole list before changing any part, stage or association.
+        for payload, stage in zip(req['stages'], stage_matches):
+            if 'manufacturer_ids' not in payload:
+                continue
+            existing_ids = [link.manufacturer_id for link in sorted(
+                stage.manufacturer_links, key=lambda link: link.priority)] if stage is not None else []
+            if payload['manufacturer_ids'] != existing_ids and (
+                    not current_user.is_authenticated or current_user.role not in ('admin', 'engineer')):
+                raise Forbidden('Admin or engineer role required to change stage manufacturers')
+        for payload in req['stages']:
+            if 'manufacturer_ids' in payload:
+                validate_ids(payload['manufacturer_ids'], Manufacturer, 'manufacturer_ids')
+    if typ == 'part' and 'images' in req:
+        if not isinstance(req['images'], list) or not all(isinstance(i, dict) for i in req['images']):
+            raise ValueError('images must be a list of objects')
+    mapping = {'name': 'name'}
+    if typ == 'product':
+        mapping.update(notes='notes', partCode='code', code='code', specs='specs')
+    elif typ == 'assembly':
+        mapping.update(notes='description', description='description')
+    else:
+        mapping.update(notes='notes', partCode='part_code', part_code='part_code', specs='specs',
+                       partType='part_type', part_type='part_type', status='status',
+                       supplier='supplier', supplier_email='supplier_email')
+    for key, attribute in mapping.items():
+        if key in req:
+            setattr(obj, attribute, req[key])
+    for key, value in values.items():
+        setattr(obj, key, value)
+    if typ == 'part' and 'stages' in req:
+        matched_ids = {stage.id for stage in stage_matches if stage is not None}
+        for idx, (payload, stage) in enumerate(zip(req['stages'], stage_matches)):
+            if stage is None:
+                stage = Stage(part=obj, name='Stage')
+                db.session.add(stage)
+            stage.sort_order = idx
+            if 'manufacturer_ids' in payload:
+                replace_stage_manufacturers(stage, payload['manufacturer_ids'])
+            for field in _STAGE_FIELDS:
+                if field in payload:
+                    setattr(stage, field, payload[field])
+        for stage in existing_stages:
+            if stage.id not in matched_ids:
+                db.session.delete(stage)
+    if typ == 'part' and 'images' in req:
+        existing = obj.images.all() if obj.id is not None else []
+        incoming = [{'url': i.get('url', ''), 'label': i.get('label', '')} for i in req['images']]
+        if incoming != [{'url': i.url, 'label': i.label or ''} for i in existing]:
+            for image in existing:
+                db.session.delete(image)
+            for image in incoming:
+                db.session.add(Image(part_ref=obj, **image))
+
+
 @app.route('/api/node', methods=['POST'])
 @login_required
 def create_node():
-    req = request.json
+    req = request.get_json(silent=True)
+    if not isinstance(req, dict):
+        return jsonify({'error': 'JSON object required'}), 400
     typ = req.get('type', 'assembly')
-    parent_id = req.get('parent')
+    if typ not in ('product', 'assembly', 'part'):
+        return jsonify({'error': 'Invalid node type'}), 400
     name = req.get('name', 'بدون نام')
-
+    parent_obj, parent_typ = _resolve_node(req.get('parent'))
     if typ == 'product':
-        p = Product(name=name, code='', specs='', notes='', order_count=0, status='active')
-        db.session.add(p)
-        db.session.flush()
+        if req.get('parent') not in (None, '#', ''):
+            return jsonify({'error': 'Product must be a root'}), 400
+        obj = Product(name=name, quantity=0, order_count=0, status='active')
     elif typ == 'assembly':
-        parent_obj, parent_typ = _resolve_node(parent_id)
-        if parent_typ == 'product':
-            a = Assembly(product_id=parent_obj.id, parent_id=None, name=name)
-        else:
-            a = Assembly(product_id=parent_obj.product_id if hasattr(parent_obj, 'product_id') else 1, parent_id=parent_obj.id, name=name)
-        db.session.add(a)
-        db.session.flush()
+        if parent_typ not in ('product', 'assembly'):
+            return jsonify({'error': 'Assembly parent must be a product or assembly'}), 400
+        obj = Assembly(name=name, quantity=0, required_quantity=1,
+                       product_id=parent_obj.id if parent_typ == 'product' else parent_obj.product_id,
+                       parent_id=parent_obj.id if parent_typ == 'assembly' else None)
     else:
-        parent_obj, parent_typ = _resolve_node(parent_id)
-        assembly_id = parent_obj.id if parent_typ == 'assembly' else 1
-        r = Part(assembly_id=assembly_id, name=name, part_code='', specs='', part_type='make',
-                 quantity=0, required_quantity=1, supplier='', notes='', status='not_started')
-        db.session.add(r)
-        db.session.flush()
-
+        if parent_typ != 'assembly':
+            return jsonify({'error': 'Part parent must be an assembly'}), 400
+        obj = Part(assembly_id=parent_obj.id, name=name, quantity=0, required_quantity=1,
+                   part_type='make', status='not_started')
+    try:
+        _apply_node_fields(obj, typ, req)
+    except Forbidden as error:
+        db.session.rollback()
+        return jsonify({'error': error.description}), 403
+    except ValueError as error:
+        db.session.rollback()
+        return jsonify({'error': str(error)}), 400
+    db.session.add(obj)
     db.session.commit()
-    data = load_data()
-    nd = data['nodes'].get(f'{typ[0]}{p.id if typ=="product" else a.id if typ=="assembly" else r.id}')
-    return jsonify({'success': True, 'node': nd})
+    node_id = f'{ {"product": "p", "assembly": "a", "part": "r"}[typ]}{obj.id}'
+    return jsonify({'success': True, 'node': load_data()['nodes'][node_id]})
 
-@app.route('/api/node/<node_id>', methods=['PUT'])
+
+@app.route('/api/node/<node_id>', methods=['PUT', 'PATCH'])
 @login_required
 def update_node(node_id):
-    req = request.json
+    req = request.get_json(silent=True)
+    if not isinstance(req, dict):
+        return jsonify({'error': 'JSON object required'}), 400
     obj, typ = _resolve_node(node_id)
     if not obj:
         return jsonify({'error': 'Not found'}), 404
-
-    if typ == 'product':
-        for key in ['name', 'notes', 'order_count']:
-            if key in req:
-                setattr(obj, key if key != 'order_count' else 'order_count', req[key])
-        obj.code = req.get('partCode', obj.code)
-        obj.specs = req.get('specs', obj.specs)
-    elif typ == 'assembly':
-        if 'name' in req: obj.name = req['name']
-        obj.description = req.get('notes', obj.description)
-    else:
-        for key in ['name', 'notes', 'partCode', 'specs', 'partType', 'status', 'supplier']:
-            if key in req:
-                setattr(obj, key, req[key])
-        if 'quantity' in req: obj.quantity = int(req['quantity'])
-        if 'required_quantity' in req: obj.required_quantity = int(req['required_quantity'])
-        if 'stages' in req:
-            Stage.query.filter_by(part_id=obj.id).delete()
-            for idx, s in enumerate(req['stages']):
-                st = Stage(part_id=obj.id, name=s.get('name', 'Stage'),
-                           status=s.get('status', 'not_started'), sort_order=idx,
-                           estimated_material_cost=s.get('estimated_material_cost', 0),
-                           actual_material_cost=s.get('actual_material_cost', 0),
-                           estimated_labor_cost=s.get('estimated_labor_cost', 0),
-                           actual_labor_cost=s.get('actual_labor_cost', 0),
-                           estimated_overhead=s.get('estimated_overhead', 0),
-                           actual_overhead=s.get('actual_overhead', 0),
-                           estimated_hours=s.get('estimated_hours', 0),
-                           actual_hours=s.get('actual_hours', 0))
-                db.session.add(st)
-        if 'images' in req:
-            Image.query.filter_by(part_id=obj.id).delete()
-            for img in req['images']:
-                im = Image(part_id=obj.id, url=img.get('url', ''), label=img.get('label', ''))
-                db.session.add(im)
-
+    try:
+        _apply_node_fields(obj, typ, req)
+    except Forbidden as error:
+        db.session.rollback()
+        return jsonify({'error': error.description}), 403
+    except ValueError as error:
+        db.session.rollback()
+        return jsonify({'error': str(error)}), 400
     db.session.commit()
-    return jsonify({'success': True, 'node': _build_node_dict(obj, typ)})
-
-@app.route('/api/node/<node_id>', methods=['PATCH'])
-@login_required
-def quick_update_node(node_id):
-    req = request.json
-    obj, typ = _resolve_node(node_id)
-    if not obj:
-        return jsonify({'error': 'Not found'}), 404
-    if 'name' in req:
-        old_name = obj.name
-        obj.name = req['name']
-    if 'quantity' in req and typ == 'part':
-        obj.quantity = int(req['quantity'])
-    if 'required_quantity' in req and typ == 'part':
-        obj.required_quantity = int(req['required_quantity'])
-    db.session.commit()
-    return jsonify({'success': True, 'node': _build_node_dict(obj, typ)})
+    return jsonify({'success': True, 'node': load_data()['nodes'][node_id]})
 
 @app.route('/api/node/<node_id>/move', methods=['POST'])
 @login_required
@@ -335,24 +425,37 @@ def move_node(node_id):
     obj, typ = _resolve_node(node_id)
     if not obj:
         return jsonify({'error': 'Not found'}), 404
-    req = request.json
+    req = request.get_json(silent=True)
+    if not isinstance(req, dict):
+        return jsonify({'error': 'JSON object required'}), 400
     new_parent_id = req.get('new_parent')
-    new_parent_obj, new_parent_typ = _resolve_node(new_parent_id) if new_parent_id and new_parent_id != '#' else (None, None)
+    new_parent_obj, new_parent_typ = _resolve_node(new_parent_id)
 
     if typ == 'assembly':
-        old_parent_id = obj.parent_id
-        if new_parent_typ == 'product':
-            obj.parent_id = None
-            obj.product_id = new_parent_obj.id
-        elif new_parent_typ == 'assembly':
-            obj.parent_id = new_parent_obj.id
-            obj.product_id = new_parent_obj.product_id
-        else:
-            obj.parent_id = None
+        if new_parent_typ not in ('product', 'assembly'):
+            return jsonify({'error': 'Assembly parent must be a product or assembly'}), 400
+        subtree = []
+        pending = [obj]
+        seen = set()
+        while pending:
+            assembly = pending.pop()
+            if assembly.id in seen:
+                return jsonify({'error': 'Cycle in existing hierarchy'}), 400
+            seen.add(assembly.id)
+            subtree.append(assembly)
+            pending.extend(Assembly.query.filter_by(parent_id=assembly.id).all())
+        if new_parent_typ == 'assembly' and new_parent_obj.id in seen:
+            return jsonify({'error': 'Cannot move into self or descendant'}), 400
+        product_id = new_parent_obj.id if new_parent_typ == 'product' else new_parent_obj.product_id
+        obj.parent_id = new_parent_obj.id if new_parent_typ == 'assembly' else None
+        for assembly in subtree:
+            assembly.product_id = product_id
     elif typ == 'part':
-        if new_parent_typ == 'assembly':
-            old_assembly_id = obj.assembly_id
-            obj.assembly_id = new_parent_obj.id
+        if new_parent_typ != 'assembly':
+            return jsonify({'error': 'Part parent must be an assembly'}), 400
+        obj.assembly_id = new_parent_obj.id
+    elif new_parent_id not in (None, '#', ''):
+        return jsonify({'error': 'Product must remain a root'}), 400
 
     db.session.commit()
     return jsonify({'success': True})
@@ -376,7 +479,8 @@ def delete_node(node_id):
                 delete_recursive(p, 'part')
             db.session.delete(o)
         elif t == 'part':
-            Stage.query.filter_by(part_id=o.id).delete()
+            for stage in o.stages.all():
+                db.session.delete(stage)
             Image.query.filter_by(part_id=o.id).delete()
             db.session.delete(o)
 
@@ -410,21 +514,16 @@ def export_excel():
     if not product_id or product_id not in data['nodes']:
         return "محصول انتخاب نشده است", 400
     product = data['nodes'][product_id]
-    target_qty = max(product.get('order_count', 1), 1)
+    target_qty = product.get('order_count', 0)
     def get_real_status(node):
-        if node.get('type') == 'part':
-            required = node.get('required_quantity', 1)
-            total_req = required * target_qty
-            available = node.get('quantity', 0)
-            if available >= total_req: return 'کافی'
-            elif available > 0: return 'ناقص'
-            else: return 'کسری'
-        return 'ندارد'
+        if node['shortage'] == 0: return 'کافی'
+        elif node['stock_used'] > 0: return 'ناقص'
+        else: return 'کسری'
     wb = Workbook()
     wb.remove(wb.active)
     red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
     green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-    def add_sheet_for_node(node_id, sheet_name, parent_total_req=1):
+    def add_sheet_for_node(node_id, sheet_name):
         node = data['nodes'].get(node_id)
         if not node: return
         clean_name = re.sub(r'[\\\/\?\*\[\]]', '-', sheet_name)[:31]
@@ -437,11 +536,11 @@ def export_excel():
             cell.fill = PatternFill(start_color="4CAF50", end_color="4CAF50", fill_type="solid")
             cell.alignment = Alignment(horizontal='center')
         row_idx = 2
-        def write_nodes_recursive(nid, level, parent_req):
+        def write_nodes_recursive(nid, level):
             nonlocal row_idx
             child_node = data['nodes'].get(nid)
             if not child_node: return
-            total_required = child_node.get('required_quantity', 1) * parent_req
+            total_required = child_node['required_total']
             stages_str = " - ".join([s['name'] for s in child_node.get('stages', [])]) if child_node.get('stages') else "-"
             indent = "  " * level
             ws.cell(row=row_idx, column=1, value=indent + child_node['name'])
@@ -476,22 +575,22 @@ def export_excel():
             ws.row_dimensions[row_idx].height = 45
             row_idx += 1
             for grandchild_id in child_node.get('children', []):
-                write_nodes_recursive(grandchild_id, level + 1, total_required)
+                write_nodes_recursive(grandchild_id, level + 1)
         for child_id in node.get('children', []):
-            write_nodes_recursive(child_id, 0, parent_total_req)
+            write_nodes_recursive(child_id, 0)
         for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M']:
             ws.column_dimensions[col].width = 18
         ws.column_dimensions['N'].width = 35
     if product_id and product_id in data['nodes']:
         selected_node = data['nodes'][product_id]
-        add_sheet_for_node(product_id, selected_node['name'], target_qty)
+        add_sheet_for_node(product_id, selected_node['name'])
         def add_child_sheets(node_id):
             node = data['nodes'].get(node_id)
             if not node: return
             for child_id in node.get('children', []):
                 child = data['nodes'].get(child_id)
                 if child and child['type'] == 'assembly':
-                    add_sheet_for_node(child_id, child['name'], target_qty)
+                    add_sheet_for_node(child_id, child['name'])
                 add_child_sheets(child_id)
         add_child_sheets(product_id)
     output = BytesIO()
@@ -508,16 +607,10 @@ def export_schematic():
     if not product_id or product_id not in data['nodes']:
         return "محصول انتخاب نشده است", 400
     root_node = data['nodes'][product_id]
-    root_order_count = max(root_node.get('order_count', 1), 1)
     def get_real_status(node):
-        if node.get('type') == 'part':
-            required = node.get('required_quantity', 1)
-            total_req = required * root_order_count
-            available = node.get('quantity', 0)
-            if available >= total_req: return 'completed'
-            elif available > 0: return 'in_progress'
-            else: return 'not_started'
-        return node.get('status', 'not_started')
+        if node['shortage'] == 0: return 'completed'
+        elif node['stock_used'] > 0: return 'in_progress'
+        else: return 'not_started'
     dot = graphviz.Digraph('ProductSchematic', format='pdf')
     dot.attr(rankdir='LR', size='30,30!', dpi='300', bgcolor='#FFFFFF')
     dot.attr('node', shape='plaintext', fontname='Tahoma')
@@ -546,8 +639,8 @@ def export_schematic():
                 color = get_stage_color(s)
                 stages_html += f'<TD BGCOLOR="{color}"><FONT COLOR="#FFFFFF" POINT-SIZE="10">{s["name"]}</FONT></TD>'
             stages_html += '</TR></TABLE></TD></TR>'
-        total_req_display = (node.get('required_quantity', 1) * root_order_count) if node.get('type') == 'part' else node.get('required_quantity', 1)
-        qty_info = f"موجودی: {node.get('quantity', 0)} | نیاز کل: {total_req_display}"
+        total_req_display = node['required_total']
+        qty_info = f"موجودی: {node['quantity']} | نیاز کل: {total_req_display} | کسری: {node['shortage']}"
         stages_cost = node.get('stages', [])
         total_cost = sum(s.get('estimated_material_cost', 0) + s.get('estimated_labor_cost', 0) + s.get('estimated_overhead', 0) for s in stages_cost)
         cost_html = f'<TR><TD><FONT POINT-SIZE="10" COLOR="#2C3E50">هزینه برآوردی: {total_cost:,}</FONT></TD></TR>' if total_cost else ''
@@ -699,7 +792,10 @@ def send_part_email():
         return jsonify({'message': 'ایمیل تأمین‌کننده تنظیم نشده است'}), 400
     try:
         from email_notif import send_low_stock_email
-        success = send_low_stock_email(obj)
+        node = load_data()['nodes'][part_id]
+        if node['shortage'] == 0:
+            return jsonify({'message': 'No shortage; notification not sent', 'sent': False})
+        success = send_low_stock_email(obj, node=node, recipient=email_to)
         if success:
             return jsonify({'message': f'ایمیل هشدار کمبود به {email_to} ارسال شد'})
         else:
@@ -782,6 +878,7 @@ def delete_document(doc_id):
 
 def init_db():
     with app.app_context():
+        _ensure_inventory_schema()
         db.create_all()
         if not User.query.filter_by(username='admin').first():
             admin = User(username='admin', email='admin@bom-system.com', role='admin')
@@ -790,12 +887,18 @@ def init_db():
             db.session.commit()
             print('[OK] Default admin user created (admin/admin123)')
 
+def _run_low_stock_check():
+    from email_notif import check_and_notify_low_stock
+    with app.app_context():
+        check_and_notify_low_stock()
+
+
 if __name__ == '__main__':
     init_db()
     from apscheduler.schedulers.background import BackgroundScheduler
     scheduler = BackgroundScheduler()
     scheduler.add_job(
-        func=lambda: __import__('email_notif', fromlist=['check_and_notify_low_stock']).check_and_notify_low_stock(),
+        func=_run_low_stock_check,
         trigger='interval', hours=6, id='low_stock_check'
     )
     scheduler.start()
