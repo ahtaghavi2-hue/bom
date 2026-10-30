@@ -93,3 +93,27 @@ def generate_work_orders(schedule):
         db.session.add(WorkOrder(schedule_id=schedule.id, part_id=part_id, quantity=total,
                                  status='pending', due_date=schedule.end_date))
     db.session.commit()
+
+
+def refresh_pending_work_orders(schedule):
+    """Rebuild the not-yet-started orders after a schedule quantity change.
+
+    Orders that already started (in_progress/completed/cancelled) are never
+    touched; their quantities are subtracted from the new requirement so the
+    remaining pending order only covers what is still needed. The caller owns
+    the commit, so the schedule and its orders change atomically.
+    """
+    totals = part_requirement_totals(schedule.product_id, schedule.quantity)
+    committed = {}
+    for order in WorkOrder.query.filter(WorkOrder.schedule_id == schedule.id,
+                                        WorkOrder.status != 'pending').all():
+        committed[order.part_id] = committed.get(order.part_id, 0) + (order.quantity or 0)
+    WorkOrder.query.filter_by(schedule_id=schedule.id, status='pending').delete()
+    created = 0
+    for part_id, total in totals.items():
+        remaining = total - committed.get(part_id, 0)
+        if remaining > 0:
+            db.session.add(WorkOrder(schedule_id=schedule.id, part_id=part_id, quantity=remaining,
+                                     status='pending', due_date=schedule.end_date))
+            created += 1
+    return created

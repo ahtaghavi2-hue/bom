@@ -9,7 +9,8 @@ with patch.object(Config, 'SQLALCHEMY_DATABASE_URI', 'sqlite:///:memory:'):
     import app as backend
 
 from extensions import db
-from models import Assembly, Part, Product, ProductionSchedule, User, WorkOrder
+from models import (Assembly, Document, Image, NotificationLog, Part, Product,
+                    ProductionSchedule, Stage, User, WorkOrder)
 
 
 @pytest.fixture
@@ -218,3 +219,126 @@ def test_b10_nested_multipliers_for_work_orders(client, path):
     with backend.app.app_context():
         order = WorkOrder.query.filter_by(part_id=part.id).one()
         assert order.quantity == 120, order.quantity   # 4 × 3 × 2 × 5
+
+
+# ───── B11 — pending work orders follow schedule quantity changes ─────
+
+def test_b11_quantity_change_refreshes_pending_work_orders(client):
+    product, _, _, part = nested_chain()          # 4 × 3 × 2 = 24 per unit
+    created = client.post('/api/v2/schedules', json={'product_id': product.id, 'quantity': 20})
+    schedule_id = created.get_json()['data']['id']
+    with backend.app.app_context():
+        assert WorkOrder.query.filter_by(part_id=part.id).one().quantity == 480
+    response = client.put(f'/api/v2/schedules/{schedule_id}', json={'quantity': 50})
+    assert response.status_code == 200, response.get_data(as_text=True)
+    with backend.app.app_context():
+        orders = WorkOrder.query.filter_by(part_id=part.id).all()
+        assert len(orders) == 1, [o.quantity for o in orders]
+        assert orders[0].quantity == 1200
+        assert orders[0].status == 'pending'
+        schedule = db.session.get(ProductionSchedule, schedule_id)
+        assert '20 → 50' in schedule.notes
+
+
+def test_b11_started_orders_are_kept_and_remainder_is_planned(client):
+    product, _, _, part = nested_chain()
+    created = client.post('/api/v2/schedules', json={'product_id': product.id, 'quantity': 20})
+    schedule_id = created.get_json()['data']['id']
+    with backend.app.app_context():
+        order = WorkOrder.query.filter_by(part_id=part.id).one()
+        order.status = 'in_progress'
+        started_id, started_quantity = order.id, order.quantity
+        db.session.commit()
+    assert client.put(f'/api/v2/schedules/{schedule_id}',
+                      json={'quantity': 50}).status_code == 200
+    with backend.app.app_context():
+        started = db.session.get(WorkOrder, started_id)
+        assert started.quantity == started_quantity and started.status == 'in_progress'
+        pending = WorkOrder.query.filter_by(part_id=part.id, status='pending').one()
+        assert pending.quantity == 1200 - started_quantity
+
+
+def test_b11_unrelated_update_keeps_orders_and_notes(client):
+    product, _, _, part = nested_chain()
+    created = client.post('/api/v2/schedules', json={'product_id': product.id, 'quantity': 20})
+    schedule_id = created.get_json()['data']['id']
+    with backend.app.app_context():
+        original = [(o.id, o.quantity) for o in WorkOrder.query.all()]
+    assert client.put(f'/api/v2/schedules/{schedule_id}',
+                      json={'priority': 'high', 'notes': 'rush'}).status_code == 200
+    with backend.app.app_context():
+        assert [(o.id, o.quantity) for o in WorkOrder.query.all()] == original
+        schedule = db.session.get(ProductionSchedule, schedule_id)
+        assert schedule.notes == 'rush'
+        assert schedule.priority == 'high'
+
+
+# ───── B15 — deleting a node cleans files and orphan rows ─────
+
+def test_b15_delete_product_cascades_files_documents_and_orders(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(backend, 'UPLOAD_DIR', tmp_path)
+    product = make_product()
+    assembly = Assembly(product_id=product.id, name='A', quantity=0, required_quantity=1)
+    db.session.add(assembly)
+    db.session.commit()
+    part = Part(assembly_id=assembly.id, name='P', quantity=0, required_quantity=1,
+                part_type='make', status='not_started')
+    db.session.add(part)
+    db.session.commit()
+    db.session.add(Stage(part_id=part.id, name='Cut'))
+    for name, kwargs in (('part-doc.pdf', {'part_id': part.id}),
+                         ('asm-doc.pdf', {'assembly_id': assembly.id})):
+        (tmp_path / name).write_bytes(b'%PDF')
+        db.session.add(Document(filename=name, original_name=name, file_type='pdf', file_size=4,
+                                url=f'/uploads/{name}', **kwargs))
+    for name, kwargs in (('part-img.png', {'part_id': part.id}),
+                         ('asm-img.png', {'assembly_id': assembly.id})):
+        (tmp_path / name).write_bytes(b'PNG')
+        db.session.add(Image(url=f'/uploads/{name}', label=name, **kwargs))
+    # A row whose file is already gone must still be removed without erroring.
+    db.session.add(Document(filename='ghost.pdf', url='/uploads/ghost.pdf', file_type='pdf'))
+    db.session.add(NotificationLog(part_id=part.id, sent_to='ops@example.com', status='sent'))
+    db.session.commit()
+    created = client.post('/api/v2/schedules', json={'product_id': product.id, 'quantity': 3})
+    assert created.status_code == 201
+    schedule_id = created.get_json()['data']['id']
+
+    response = client.delete(f'/api/node/p{product.id}')
+    assert response.status_code == 200, response.get_data(as_text=True)
+    removed = response.get_json()['removed']
+    # The both-NULL "ghost" document has no owner (B14), so it is not attributed
+    # to this product and must survive; its missing file is not an error either.
+    assert removed == {'documents': 2, 'images': 2, 'files': 4, 'work_orders': 1,
+                       'notifications': 1, 'schedules': 1}, removed
+    assert sorted(p.name for p in tmp_path.iterdir()) == []
+    with backend.app.app_context():
+        for model in (Product, Assembly, Part, Stage, Image, NotificationLog,
+                      ProductionSchedule, WorkOrder):
+            assert model.query.count() == 0, model.__name__
+        assert [d.filename for d in Document.query.all()] == ['ghost.pdf']
+        assert db.session.get(ProductionSchedule, schedule_id) is None
+
+
+def test_b15_delete_single_part_keeps_sibling_data(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(backend, 'UPLOAD_DIR', tmp_path)
+    product = make_product()
+    assembly = Assembly(product_id=product.id, name='A', quantity=0, required_quantity=1)
+    db.session.add(assembly)
+    db.session.commit()
+    kept = Part(assembly_id=assembly.id, name='Keep', quantity=0, required_quantity=1,
+                part_type='make', status='not_started')
+    doomed = Part(assembly_id=assembly.id, name='Doomed', quantity=0, required_quantity=1,
+                  part_type='make', status='not_started')
+    db.session.add_all([kept, doomed])
+    db.session.commit()
+    for name, part in (('kept.pdf', kept), ('doomed.pdf', doomed)):
+        (tmp_path / name).write_bytes(b'x')
+        db.session.add(Document(filename=name, url=f'/uploads/{name}', part_id=part.id))
+    db.session.commit()
+
+    assert client.delete(f'/api/node/r{doomed.id}').status_code == 200
+    assert (tmp_path / 'kept.pdf').is_file() and not (tmp_path / 'doomed.pdf').exists()
+    with backend.app.app_context():
+        assert Document.query.filter_by(part_id=doomed.id).count() == 0
+        assert Document.query.filter_by(part_id=kept.id).count() == 1
+        assert db.session.get(Part, kept.id) is not None

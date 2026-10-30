@@ -9,7 +9,7 @@ from manufacturer_service import (json_object, validate_ids, validate_manufactur
     replace_stage_manufacturers, stage_manufacturers, manufacturer_usage, filter_manufacturers,
     manufacturer_workbook)
 from schedule_service import (ScheduleValidationError, generate_work_orders,
-    validate_schedule_payload)
+    refresh_pending_work_orders, validate_schedule_payload)
 from datetime import datetime
 import os
 import uuid
@@ -300,8 +300,13 @@ def update_schedule(schedule_id):
     except ScheduleValidationError as error:
         return jsonify({'error': str(error)}), 400
     data.pop('product_id', None)
+    previous_quantity = schedule.quantity
     for key, value in data.items():
         setattr(schedule, key, value)
+    if schedule.quantity != previous_quantity:
+        created = refresh_pending_work_orders(schedule)
+        note = f'Work orders recalculated: {previous_quantity} → {schedule.quantity} units ({created} pending)'
+        schedule.notes = f'{schedule.notes}\n{note}' if schedule.notes else note
     db.session.commit()
     return jsonify({'success': True, 'data': schedule.to_dict()})
 

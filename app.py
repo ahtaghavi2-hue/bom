@@ -17,7 +17,7 @@ import graphviz
 from config import Config, ensure_production_secret
 from extensions import db, login_manager, mail, migrate, cors
 from permissions import role_required
-from models import Product, Assembly, Part, Stage, Image, Document, Setting, User, ProductionSchedule, WorkOrder
+from models import Product, Assembly, Part, Stage, Image, Document, Setting, User, ProductionSchedule, WorkOrder, NotificationLog
 from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
 from auth import auth_bp
 from api_v2 import api_bp
@@ -481,33 +481,67 @@ def move_node(node_id):
     db.session.commit()
     return jsonify({'success': True})
 
+def _unlink_upload(url):
+    """Delete one stored upload by its public URL; ignore missing files."""
+    if not url or not str(url).startswith('/uploads/'):
+        return False
+    path = UPLOAD_DIR / Path(str(url)[len('/uploads/'):]).name
+    if path.is_file():
+        path.unlink()
+        return True
+    return False
+
+
 @app.route('/api/node/<node_id>', methods=['DELETE'])
 @role_required('admin', 'engineer')
 def delete_node(node_id):
     obj, typ = _resolve_node(node_id)
     if not obj:
         return jsonify({'error': 'Not found'}), 404
+    removed = {'documents': 0, 'images': 0, 'files': 0, 'work_orders': 0, 'notifications': 0,
+               'schedules': 0}
+
+    def drop_documents(**filters):
+        for doc in Document.query.filter_by(**filters).all():
+            removed['documents'] += 1
+            removed['files'] += 1 if _unlink_upload(doc.url) else 0
+            db.session.delete(doc)
+
+    def drop_images(**filters):
+        for image in Image.query.filter_by(**filters).all():
+            removed['images'] += 1
+            removed['files'] += 1 if _unlink_upload(image.url) else 0
+            db.session.delete(image)
 
     def delete_recursive(o, t):
         if t == 'product':
             for a in Assembly.query.filter_by(product_id=o.id).all():
                 delete_recursive(a, 'assembly')
+            # Schedules belong to the product; their orders cascade with them.
+            for schedule in ProductionSchedule.query.filter_by(product_id=o.id).all():
+                removed['schedules'] += 1
+                db.session.delete(schedule)
             db.session.delete(o)
         elif t == 'assembly':
             for sub in Assembly.query.filter_by(parent_id=o.id).all():
                 delete_recursive(sub, 'assembly')
             for p in Part.query.filter_by(assembly_id=o.id).all():
                 delete_recursive(p, 'part')
+            drop_documents(assembly_id=o.id)
+            drop_images(assembly_id=o.id)
             db.session.delete(o)
         elif t == 'part':
             for stage in o.stages.all():
                 db.session.delete(stage)
-            Image.query.filter_by(part_id=o.id).delete()
+            drop_documents(part_id=o.id)
+            drop_images(part_id=o.id)
+            removed['work_orders'] += WorkOrder.query.filter_by(part_id=o.id).delete()
+            removed['notifications'] += NotificationLog.query.filter_by(part_id=o.id).delete()
             db.session.delete(o)
 
     delete_recursive(obj, typ)
     db.session.commit()
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'removed': removed})
 
 @app.route('/api/upload', methods=['POST'])
 @role_required('admin', 'engineer')

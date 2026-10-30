@@ -2,11 +2,11 @@
 
 > Last code-audit update: **October 30, 2026** — branch: `dev/classic-restart`
 > Scope: all layers (data model, migrations, service/API, auth & authorization, frontend, templates/CSS, tests & tooling).
-> **Phase 0 (B1, B2, B3, B13, B7) and the opened Phase 1 items (B4, B6, B8, B9, B10, B12) are fixed.** This file is the tracking document: when a fix starts, tick the checklist items under the bug and mark it Done.
+> **Phase 0 (B1, B2, B3, B13, B7) and the opened Phase 1 items (B4, B6, B8, B9, B10, B12, B11, B15) are fixed.** This file is the tracking document: when a fix starts, tick the checklist items under the bug and mark it Done.
 > Unrelated: [inventory-plan.md](inventory-plan.md)
 >
 > Audit method: every item was re-verified against the current code (file + line references) and by execution (8x... see "Status legend").
-> Test run 2026-10-30 (after Phase 1 start): **116 unit tests passed, 14/14 browser tests passed.**
+> Test run 2026-10-30 (after B11/B15): **121 unit tests passed, 14/14 browser tests passed.**
 
 ## Status legend
 
@@ -38,6 +38,7 @@ A finished item must say *how it was verified* somewhere in those bullets (test 
 
 - `013edc8` — phase 0: B1, B2, B3, B13, B7 (new `permissions.py`, 19-test `test_phase0_security.py`).
 - `341650a` — phase 1 (opened items): B4, B6, B8, B9, B10, B12 (new `schedule_service.py`, 17-test `test_phase1_fixes.py`).
+- Phase 1 continuation: B11 and B15 (see the `schedule_service` regeneration helper and `app.py` delete cascade; `test_phase1_fixes.py` gained 5 tests).
 - Cross-cutting, not tied to a single bug: two legacy fixtures were signing in as nobody and are now real sessions; a flask-login per-app-context cache leak between test clients was fixed in the tests; README security/roles/test sections rewritten; `templates/settings.html` had CRLF/no-newline damage from earlier edits and was normalized.
 
 ## 🔴 Critical
@@ -203,15 +204,18 @@ Classic (`app.py create_schedule`) and v2 (`api_v2.py create_schedule`):
 - `schedule_service.part_requirement_totals()` walks the assembly tree once, multiplying every level; `generate_work_orders()` writes one pending order per part for both routes.
 - Beyond the checklist: writing the test exposed a second mistake in the first implementation — the product→root-assembly edge was multiplied by 1, giving 30 instead of 120. The root coefficient is now applied, and the parametrized test covers the 4×3×2×5 chain on both endpoints.
 
-### B11 — Work orders never refresh when a schedule changes
+### B11 — Work orders never refresh when a schedule changes — **Done (Phase 1)**
 `update_schedule` can change `quantity` (v2), but previously generated work orders keep the old value. Confirmed by execution.
 
 **Fix checklist:**
-- [ ] On schedule quantity change, delete not-yet-started work orders for that schedule and regenerate with the corrected totals (B10 helper).
-- [ ] Never touch started/completed orders; log the adjustment in `notes`.
-- [ ] Regression test: change schedule 20→50 → pending WOs follow.
+- [x] On schedule quantity change, delete not-yet-started work orders for that schedule and regenerate with the corrected totals (B10 helper).
+- [x] Never touch started/completed orders; log the adjustment in `notes`.
+- [x] Regression test: change schedule 20→50 → pending WOs follow.
 
-**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+**Work log:**
+- **Changed:** `schedule_service.refresh_pending_work_orders()` rebuilds only `pending` orders from `part_requirement_totals()`; `api_v2.update_schedule` calls it when the quantity actually changes and appends `Work orders recalculated: 20 → 50 units (n pending)` to `notes`. Same transaction as the schedule update (one commit).
+- **Beyond checklist:** the naive "delete pending and recreate" would have re-planned work that had already started, so quantities of `in_progress`/`completed`/`cancelled` orders are summed per part and subtracted; only the remainder becomes a new pending order. A no-op edit (priority/notes only) provably leaves order ids and quantities untouched.
+- **Left open:** pending orders keep their old `due_date` when only `end_date` changes on the schedule — same regeneration path can be extended later; not part of this bug. Verified by five tests in `test_phase1_fixes.py` (`20→50` = 480→1200 on a 4×3×2 BOM, started-order remainder, unrelated update).
 
 ### B28 — Part type never saved from UI
 `#field-partType` does not exist in any template, but `script.js` reads it (`payload.partType = $('#field-partType').val()`) and writes it on open. Result: `partType: undefined` is dropped from the payload → `part_type` is never set through the classic UI.
@@ -309,16 +313,20 @@ Confirmed: nested assemblies (whose `parent` is an assembly) and their parts are
 
 **Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
 
-### B15 — Node deletion leaves orphaned data and files
+### B15 — Node deletion leaves orphaned data and files — **Done (Phase 1)**
 `delete_node` does not clean `Document` records + disk files, `WorkOrder`, `NotificationLog`, or uploaded image files (images: only records deleted).
 
 **Fix checklist:**
-- [ ] In the recursive delete: collect `Document` records → delete rows + unlink files; delete `WorkOrder`s and `NotificationLog`s for parts being removed.
-- [ ] For assembly/product cascade, include their image files too.
-- [ ] Keep a simple `deleted_uploads` audit line (log) or a dry-run listing (nice-to-have).
-- [ ] Regression test: build product + part + doc + image + schedule → delete root → filesystem and orphan tables are clean.
+- [x] In the recursive delete: collect `Document` records → delete rows + unlink files; delete `WorkOrder`s and `NotificationLog`s for parts being removed.
+- [x] For assembly/product cascade, include their image files too.
+- [x] Keep a simple `deleted_uploads` audit line (log) or a dry-run listing (nice-to-have).
+  - Delivered as machine-readable counts in the response (`{"removed": {documents, images, files, work_orders, notifications, schedules}}`) instead of a log line; the frontend ignores the extra key.
+- [x] Regression test: build product + part + doc + image + schedule → delete root → filesystem and orphan tables are clean.
 
-**Work log:** _empty — fill with the three bullets from the template at the top of this file when the fix lands._
+**Work log:**
+- **Changed:** `app.py` gained `_unlink_upload()` (resolves `/uploads/<name>` to `UPLOAD_DIR`, basename only, ignores missing files) and `delete_node` now drops `Document` rows + files, `Image` rows + files, `WorkOrder`s and `NotificationLog`s per part, and assembly-level documents/images; deleting a product also deletes its `ProductionSchedule`s.
+- **Beyond checklist:** the original recursive delete left `ProductionSchedule` rows pointing at a deleted product (dangling `product_id`, still listed in the UI) — those are now removed, and their work orders go with them. A document row whose file is already gone is still deleted without raising (tested).
+- **Left open:** documents with `part_id` and `assembly_id` both NULL are not attributable to any node (B14), so deleting a product deliberately leaves them; they stay until B14 adds an owner column. Verified by two tests in `test_phase1_fixes.py` (full product cascade with real files on a temp `UPLOAD_DIR`, and a single-part delete that keeps the sibling part's document).
 
 ### B16 — Image upload for product/assembly nodes is a no-op
 `_apply_node_fields` only handles the `images` block for `typ == 'part'`, but the frontend uploads images for all node types → file saved, no record created, image vanishes after reload.
@@ -534,6 +542,6 @@ The original claim was: the browser dark-mode test read computed styles while a 
 ## Suggested fix order (phases)
 
 1. **Phase 0 — security, smallest diffs (done):** B1 → B3 → B2 → B13 → B7 (each 1–3 touchpoints; B2 needs the shared decorator first).
-2. **Phase 1 — data correctness:** ~~B8~~, ~~B9~~, ~~B12~~, ~~B10~~ (done), then B11, B15, B16, B14, B23, B22, B21, B24. Security continuations B4/B6 are also done.
+2. **Phase 1 — data correctness:** ~~B8~~, ~~B9~~, ~~B12~~, ~~B10~~, ~~B11~~, ~~B15~~ (done), then B16, B14, B23, B22, B21, B24. Security continuations B4/B6 are also done.
 3. **Phase 2 — UX and frontend correctness:** B26, B27, B28, B29, B30, B31, B34 (B20, B5 ride along here).
 4. **Phase 3 — quality/performance/grinding:** B19, B18, B32, B38, B39, B40, B25, B33, B35, B36, B42 (tests last, once phases 1–2 stabilize the routes).
