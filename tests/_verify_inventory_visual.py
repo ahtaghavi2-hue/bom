@@ -80,7 +80,9 @@ server = make_server('127.0.0.1', 5091, app)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
 thread.start()
 try:
-    screenshot = ROOT / '_verify_inventory_assembly.png'
+    artifacts = ROOT / 'tests' / 'artifacts'
+    artifacts.mkdir(parents=True, exist_ok=True)
+    screenshot = artifacts / '_verify_inventory_assembly.png'
     result = subprocess.run([
         str(CHROME), '--headless=new', '--disable-gpu', '--incognito',
         '--no-first-run', '--no-default-browser-check', '--hide-scrollbars',

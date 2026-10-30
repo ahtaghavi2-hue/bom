@@ -6,6 +6,10 @@ import sqlite3
 import sys
 from unittest.mock import patch
 
+# The script now lives inside tests/; make the repository root importable again.
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT))
+
 
 def main():
     parser = argparse.ArgumentParser()

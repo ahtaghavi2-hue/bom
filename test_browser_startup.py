@@ -78,7 +78,7 @@ def isolated_server(directory, database=None, legacy=False, anonymous_auth=False
         FIXTURE_DATABASE_DIRS.append(external)
         database = external / 'fixture.sqlite'
     ready = directory / 'server-ready.json'
-    command = [sys.executable, str(ROOT / '_browser_startup_server.py'),
+    command = [sys.executable, str(ROOT / 'tests' / '_browser_startup_server.py'),
                '--database', str(database), '--ready', str(ready)]
     if anonymous_auth:
         # Scope only the harness's automatic engineer identity: real auth routes,
@@ -189,7 +189,7 @@ class Browser:
             target = next(t for t in targets if t['type'] == 'page')
             transport_log = (self.directory / 'transport.log').open('w', encoding='utf-8')
             self.logs.append(transport_log)
-            self.transport = subprocess.Popen([node, str(ROOT / '_browser_startup_cdp.js'), target['webSocketDebuggerUrl']],
+            self.transport = subprocess.Popen([node, str(ROOT / 'tests' / '_browser_startup_cdp.js'), target['webSocketDebuggerUrl']],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=transport_log, text=True, encoding='utf-8', bufsize=1)
             def reader():
                 for line in self.transport.stdout:
