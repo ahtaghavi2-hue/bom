@@ -2,11 +2,11 @@
 
 > Last code-audit update: **October 30, 2026** — branch: `dev/classic-restart`
 > Scope: all layers (data model, migrations, service/API, auth & authorization, frontend, templates/CSS, tests & tooling).
-> **No fixes have been applied yet.** This file is the tracking document: when a fix starts, tick the checklist items under the bug and mark it Done.
+> **Phase 0 (B1, B2, B3, B13, B7) is fixed and merged.** This file is the tracking document: when a fix starts, tick the checklist items under the bug and mark it Done.
 > Unrelated: [inventory-plan.md](inventory-plan.md)
 >
 > Audit method: every item was re-verified against the current code (file + line references) and by execution (8x... see "Status legend").
-> Test run 2026-10-30: **80 unit tests passed, 14/14 browser tests passed.**
+> Test run 2026-10-30 (after Phase 0): **99 unit tests passed, 14/14 browser tests passed.**
 
 ## Status legend
 
@@ -19,16 +19,16 @@ Items are ordered by severity: **Critical → High → Medium → Low**, with th
 
 ## 🔴 Critical
 
-### B1 — Disabled accounts can still log in
+### B1 — Disabled accounts can still log in — **Done (Phase 0)**
 The real login entry point `app.py` (`/login`, `login_page`) never checks `is_active_user`, while `/auth/login` (`auth.py`) does. A disabled user cannot use the v2 auth route but the main route is wide open, and any page guarded only by `login_required` works for them.
 
 **Fix checklist:**
-- [ ] Add the same `is_active_user` check in `login_page` before `login_user(user)`.
-- [ ] Reject with the same error message/HTTP shape as `auth.login` (403 for JSON, flash+redirect otherwise).
-- [ ] Add a regression test: disabled user login must fail on `/login`.
-- [ ] Check any other auth entry points (none currently known) for the same gap.
+- [x] Add the same `is_active_user` check in `login_page` before `login_user(user)`.
+- [x] Reject with the same error message/HTTP shape as `auth.login` (403 for JSON, flash+redirect otherwise).
+- [x] Add a regression test: disabled user login must fail on `/login` (`test_phase0_security.py`).
+- [x] Check any other auth entry points (none currently known) for the same gap. (`/auth/login` already checked it; those are the only two.)
 
-### B2 — Role checks only exist in API v2
+### B2 — Role checks only exist in API v2 — **Done (Phase 0)**
 `admin_required` is defined only in `api_v2.py`. All classic `/api/*` mutation routes carry only `login_required`:
 
 - `/api/node` (create/edit/move/delete node)
@@ -40,40 +40,42 @@ The real login entry point `app.py` (`/login`, `login_page`) never checks `is_ac
 A `viewer` can therefore delete the whole BOM or rewrite SMTP settings through the classic API, while the identical operation is 403 on v2. (Executed-verified: `POST /api/settings/save` returns `200` without any role check.)
 
 **Fix checklist:**
-- [ ] Create a shared decorator (e.g. `role_required('admin','engineer')`) importable by both blueprints (avoid circular imports — put it in a small `permissions.py`).
-- [ ] Apply it to all classic mutation routes listed above (GET-only routes may stay `login_required`).
-- [ ] Decide: document upload/delete = engineer+; settings save = admin only.
-- [ ] Regression tests for each role × route class (viewer must get 403).
+- [x] Create a shared decorator (e.g. `role_required('admin','engineer')`) importable by both blueprints (avoid circular imports — put it in a small `permissions.py`).
+- [x] Apply it to all classic mutation routes listed above (GET-only routes may stay `login_required`).
+- [x] Decide: document upload/delete = engineer+; settings save = admin only.
+- [x] Regression tests for each role × route class (viewer must get 403).
+  - Note: `test_manufacturers.py` previously asserted that viewers may rewrite node/stage data through the classic API; that assertion encoded the bug, so it now expects 403 and verifies the same legacy payloads still succeed for an engineer.
 
-### B3 — SMTP password stored and rendered in the clear
+### B3 — SMTP password stored and rendered in the clear — **Done (Phase 0)**
 The password is saved in plaintext in the `settings` table and rendered into the page by `templates/settings.html` (`value="{{ settings.mail_password }}"` in a password-input — the value is still readable from the DOM/source). Any logged-in user, including `viewer`, can read or overwrite it.
 
 **Fix checklist:**
-- [ ] Never pass the password value to the template; render only a "set / not set" indicator.
-- [ ] Split settings page: viewing vs saving SMTP credentials restricted to admin (depends on B2).
-- [ ] Ensure `autoSaveSetting('mail_password', ...)` only writes when a new password is actually typed (empty = keep old).
-- [ ] Later: store secrets outside the DB (env/secret store) — track, do not block v1.
+- [x] Never pass the password value to the template; render only a "set / not set" indicator.
+- [x] Split settings page: viewing vs saving SMTP credentials restricted to admin (depends on B2).
+- [x] Ensure `autoSaveSetting('mail_password', ...)` only writes when a new password is actually typed (empty = keep old).
+- [ ] Later: store secrets outside the DB (env/secret store) — tracked as B3b, still plaintext in the `settings` table.
 
-### B13 — Uploads without type/size limits (Corrected)
+### B13 — Uploads without type/size limits (Corrected) — **Done (Phase 0)**
 `/api/upload` accepts any extension with no size limit; files are served back from `/uploads`.
 - Stored XSS: an uploaded HTML/SVG is served same-origin, where user cookies/sign-in apply.
 - **Correction from original report:** `delete_document` *does* unlink the file from disk. Orphaned files are a real issue only via node deletion / image-record deletion (see B15).
 - **Extra gap found:** `/uploads/<path:filename>` has **no `login_required`** — all uploads are publicly reachable without sign-in.
 
 **Fix checklist:**
-- [ ] Whitelist extensions per endpoint (images for `/api/upload`; the existing `type_map` for documents) and reject others with 400.
-- [ ] Enforce a max upload size (request body limit / explicit size check).
-- [ ] Add `login_required` to `uploaded_file`.
-- [ ] For non-image types serve with `Content-Disposition: attachment` + `X-Content-Type-Options: nosniff`; for HTML/SVG either block or serve sandboxed.
-- [ ] Regression test: `.html` upload refused; oversized refused; anonymous `/uploads` request 401.
+- [x] Whitelist extensions per endpoint (images for `/api/upload`; the existing `type_map` for documents) and reject others with 400.
+- [x] Enforce a max upload size (request body limit / explicit size check) — 10 MB images, 25 MB documents, `413` on overflow.
+- [x] Add `login_required` to `uploaded_file`.
+- [x] For non-image types serve with `Content-Disposition: attachment` + `X-Content-Type-Options: nosniff`; HTML/SVG are not accepted at all.
+- [x] Regression test: `.html` upload refused; oversized refused; anonymous `/uploads` request redirected to login (302, not 401 — redirect is what `login_required` gives a browser).
 
-### B7 — Hardcoded default SECRET_KEY and default admin admin123
+### B7 — Hardcoded default SECRET_KEY and default admin admin123 — **Done (Phase 0)**
 `config.py` falls back to a hardcoded `SECRET_KEY` default; `app.py:init_db` creates admin with `admin123`. Together with forged-session risk (also see B6), this is production-fatal.
 
 **Fix checklist:**
-- [ ] In production mode require `SECRET_KEY` from env and fail startup otherwise; dev/test keep safe random defaults.
-- [ ] First-run admin gets a random password printed once to the console (or a provisioning path) and is forced to change it.
-- [ ] Document both in README (also covered by B42).
+- [x] In production mode require `SECRET_KEY` from env and fail startup otherwise; dev/test keep safe random defaults.
+- [x] First-run admin gets a random password printed once to the console (or a provisioning path) and is forced to change it.
+  - Partially done: the random password is printed once; *forcing* a change on first login is still open (tracked with the auth hardening work).
+- [x] Document both in README (also covered by B42).
 
 ---
 
@@ -393,7 +395,7 @@ The original claim was: the browser dark-mode test read computed styles while a 
 
 ## Suggested fix order (phases)
 
-1. **Phase 0 — security, smallest diffs:** B1 → B3 → B2 → B13 → B7 (each 1–3 touchpoints; B2 needs the shared decorator first).
+1. **Phase 0 — security, smallest diffs (done):** B1 → B3 → B2 → B13 → B7 (each 1–3 touchpoints; B2 needs the shared decorator first).
 2. **Phase 1 — data correctness:** B8, B9, B12, B10, B11, B15, B16, B14, B23, B22, B21, B24.
 3. **Phase 2 — UX and frontend correctness:** B26, B27, B28, B29, B30, B31, B34 (B20, B5 ride along here).
 4. **Phase 3 — quality/performance/grinding:** B19, B18, B32, B38, B39, B40, B25, B6, B33, B35, B36, B42 (tests last, once phases 1–2 stabilize the routes).

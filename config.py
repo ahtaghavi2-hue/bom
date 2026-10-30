@@ -25,6 +25,11 @@ class Config:
 
     JSON_AS_ASCII = False
 
+def ensure_production_secret():
+    """Refuse to boot a production deployment with the hardcoded default secret."""
+    if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('SECRET_KEY'):
+        raise RuntimeError('SECRET_KEY must be provided via the environment in production')
+
 class DevelopmentConfig(Config):
     DEBUG = True
 

@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 from flask_login import login_required, login_user, logout_user, current_user
 import os
 import json
+import secrets
 import uuid
 import re
 from pathlib import Path
@@ -13,8 +14,9 @@ from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import PatternFill, Font, Alignment
 import graphviz
 
-from config import Config
+from config import Config, ensure_production_secret
 from extensions import db, login_manager, mail, migrate, cors
+from permissions import role_required
 from models import Product, Assembly, Part, Stage, Image, Document, Setting, User, ProductionSchedule, WorkOrder
 from models import Manufacturer, ManufacturerEmail, ManufacturerPhone, ManufacturerSocial, StageDetail, part_manufacturers
 from auth import auth_bp
@@ -24,6 +26,8 @@ from bom_inventory_migration import ensure_inventory_schema
 from manufacturer_migration import ensure_manufacturer_schema
 from manufacturer_service import validate_ids, replace_stage_manufacturers, stage_manufacturers
 from werkzeug.exceptions import Forbidden
+
+ensure_production_secret()
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -66,6 +70,10 @@ app.register_blueprint(api_bp)
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+# Only formats a browser can render inline without uploading or executing.
+_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico'}
+MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_DOCUMENT_UPLOAD_BYTES = 25 * 1024 * 1024
 # ───── DB ↔ Old-Format Compatibility Layer ─────
 
 def _build_node_dict(obj, typ):
@@ -217,6 +225,12 @@ def login_page():
     user = User.query.filter((User.username == username) | (User.email == username)).first()
     if not user or not user.check_password(password):
         return render_template('modern/login.html', error='نام کاربری یا رمز عبور اشتباه است')
+    if not user.is_active_user:
+        # Same shape as auth.login: JSON callers get 403, browsers get the form back.
+        if request.is_json:
+            return jsonify({'success': False, 'message': 'حساب کاربری غیرفعال است'}), 403
+        flash('حساب کاربری غیرفعال است', 'error')
+        return redirect(url_for('login_page'))
     login_user(user)
     user.last_login = datetime.utcnow()
     db.session.commit()
@@ -360,7 +374,7 @@ def _apply_node_fields(obj, typ, req):
 
 
 @app.route('/api/node', methods=['POST'])
-@login_required
+@role_required('admin', 'engineer')
 def create_node():
     req = request.get_json(silent=True)
     if not isinstance(req, dict):
@@ -400,7 +414,7 @@ def create_node():
 
 
 @app.route('/api/node/<node_id>', methods=['PUT', 'PATCH'])
-@login_required
+@role_required('admin', 'engineer')
 def update_node(node_id):
     req = request.get_json(silent=True)
     if not isinstance(req, dict):
@@ -420,7 +434,7 @@ def update_node(node_id):
     return jsonify({'success': True, 'node': load_data()['nodes'][node_id]})
 
 @app.route('/api/node/<node_id>/move', methods=['POST'])
-@login_required
+@role_required('admin', 'engineer')
 def move_node(node_id):
     obj, typ = _resolve_node(node_id)
     if not obj:
@@ -461,7 +475,7 @@ def move_node(node_id):
     return jsonify({'success': True})
 
 @app.route('/api/node/<node_id>', methods=['DELETE'])
-@login_required
+@role_required('admin', 'engineer')
 def delete_node(node_id):
     obj, typ = _resolve_node(node_id)
     if not obj:
@@ -489,22 +503,34 @@ def delete_node(node_id):
     return jsonify({'success': True})
 
 @app.route('/api/upload', methods=['POST'])
-@login_required
+@role_required('admin', 'engineer')
 def upload():
     if 'file' not in request.files:
         return jsonify({'error': 'No file'}), 400
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No file'}), 400
-    ext = Path(file.filename).suffix
+    ext = Path(file.filename).suffix.lower()
+    if ext not in _IMAGE_EXTENSIONS:
+        return jsonify({'error': 'Unsupported file type'}), 400
+    file.seek(0, 2)
+    if file.tell() > MAX_IMAGE_UPLOAD_BYTES:
+        return jsonify({'error': 'File too large'}), 413
+    file.seek(0)
     filename = f"{uuid.uuid4().hex[:8]}{ext}"
     filepath = UPLOAD_DIR / filename
     file.save(filepath)
     return jsonify({'url': f'/uploads/{filename}', 'filename': filename})
 
 @app.route('/uploads/<path:filename>')
+@login_required
 def uploaded_file(filename):
-    return send_from_directory(UPLOAD_DIR, filename)
+    response = send_from_directory(UPLOAD_DIR, filename)
+    if Path(filename).suffix.lower() not in _IMAGE_EXTENSIONS:
+        # Never render unknown/hostile types inline in this origin.
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 @app.route('/api/export/excel')
 @login_required
@@ -685,7 +711,7 @@ def list_schedules():
     } for s in schedules]})
 
 @app.route('/api/schedules', methods=['POST'])
-@login_required
+@role_required('admin', 'engineer')
 def create_schedule():
     data = request.json
     s = ProductionSchedule(
@@ -718,12 +744,17 @@ def _auto_work_orders(schedule):
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings_page():
+    if request.method == 'POST' and current_user.role != 'admin':
+        flash('دسترسی غیرمجاز', 'error')
+        return redirect(url_for('settings_page'))
     if request.method == 'POST':
         for key in ['mail_server', 'mail_port', 'mail_username', 'mail_password', 'mail_use_tls']:
             val = request.form.get(key, '')
             if key == 'mail_port':
                 try: val = str(int(val))
                 except: val = '587'
+            if key == 'mail_password' and not str(val).strip():
+                continue  # Empty password field keeps the stored password.
             Setting.set(key, val)
         flash('تنظیمات با موفقیت ذخیره شد', 'success')
         return redirect(url_for('settings_page'))
@@ -731,17 +762,19 @@ def settings_page():
         'mail_server': Setting.get('mail_server', 'smtp.gmail.com'),
         'mail_port': Setting.get('mail_port', '587'),
         'mail_username': Setting.get('mail_username', ''),
-        'mail_password': Setting.get('mail_password', ''),
         'mail_use_tls': Setting.get('mail_use_tls', 'true'),
     }
-    return render_template('settings.html', settings=settings)
+    password_set = bool(Setting.get('mail_password', ''))
+    return render_template('settings.html', settings=settings, password_set=password_set)
 
 @app.route('/api/settings/save', methods=['POST'])
-@login_required
+@role_required('admin')
 def api_save_setting():
     data = request.json
     for key, val in data.items():
         if key in ['mail_server', 'mail_port', 'mail_username', 'mail_password', 'mail_use_tls']:
+            if key == 'mail_password' and not str(val or '').strip():
+                continue  # Empty password field keeps the stored password.
             if key == 'mail_port':
                 try: val = str(int(val))
                 except: val = '587'
@@ -759,7 +792,7 @@ def test_email():
         mail_server = data.get('mail_server', Setting.get('mail_server', ''))
         mail_port = data.get('mail_port', int(Setting.get('mail_port', '587')))
         mail_username = data.get('mail_username', Setting.get('mail_username', ''))
-        mail_password = data.get('mail_password', Setting.get('mail_password', ''))
+        mail_password = data.get('mail_password') or Setting.get('mail_password', '')
         mail_use_tls = data.get('mail_use_tls', Setting.get('mail_use_tls', 'true')) in (True, 'true')
         if not mail_server or not mail_username:
             return jsonify({'message': 'لطفاً ابتدا سرور SMTP و نام کاربری را تنظیم کنید'}), 400
@@ -821,7 +854,7 @@ def list_documents(node_id):
     } for d in docs]})
 
 @app.route('/api/documents/upload/<node_id>', methods=['POST'])
-@login_required
+@role_required('admin', 'engineer')
 def upload_document(node_id):
     obj, typ = _resolve_node(node_id)
     if not obj:
@@ -833,10 +866,6 @@ def upload_document(node_id):
         return jsonify({'error': 'No file'}), 400
     ext = Path(file.filename).suffix.lower()
     original_name = file.filename
-    filename = f"doc_{uuid.uuid4().hex[:8]}{ext}"
-    filepath = UPLOAD_DIR / filename
-    file.save(filepath)
-    file_size = os.path.getsize(filepath)
     type_map = {
         '.pdf': 'pdf', '.step': 'cad', '.stp': 'cad',
         '.dwg': 'cad', '.dxf': 'cad', '.stl': 'cad',
@@ -846,6 +875,16 @@ def upload_document(node_id):
         '.xls': 'xls', '.xlsx': 'xls', '.jpg': 'image',
         '.jpeg': 'image', '.png': 'image'
     }
+    if ext not in type_map:
+        return jsonify({'error': 'Unsupported file type'}), 400
+    file.seek(0, 2)
+    if file.tell() > MAX_DOCUMENT_UPLOAD_BYTES:
+        return jsonify({'error': 'File too large'}), 413
+    file.seek(0)
+    filename = f"doc_{uuid.uuid4().hex[:8]}{ext}"
+    filepath = UPLOAD_DIR / filename
+    file.save(filepath)
+    file_size = os.path.getsize(filepath)
     doc = Document(
         part_id=obj.id if typ == 'part' else None,
         assembly_id=obj.id if typ == 'assembly' else None,
@@ -862,7 +901,7 @@ def upload_document(node_id):
     }})
 
 @app.route('/api/documents/<int:doc_id>', methods=['DELETE'])
-@login_required
+@role_required('admin', 'engineer')
 def delete_document(doc_id):
     doc = db.session.get(Document, doc_id)
     if not doc:
@@ -881,11 +920,13 @@ def init_db():
         _ensure_inventory_schema()
         db.create_all()
         if not User.query.filter_by(username='admin').first():
+            password = secrets.token_urlsafe(12)
             admin = User(username='admin', email='admin@bom-system.com', role='admin')
-            admin.set_password('admin123')
+            admin.set_password(password)
             db.session.add(admin)
             db.session.commit()
-            print('[OK] Default admin user created (admin/admin123)')
+            print('[OK] Default admin user created (username: admin)')
+            print(f'[OK] Initial admin password (shown once, change it immediately): {password}')
 
 def _run_low_stock_check():
     from email_notif import check_and_notify_low_stock

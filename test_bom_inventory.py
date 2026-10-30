@@ -26,7 +26,7 @@ def client():
     keys = ('bom_inventory_schema_ready', 'manufacturer_schema_ready')
     flags = {key: app.extensions[key] for key in keys if key in app.extensions}
     try:
-        app.config.update(TESTING=True, LOGIN_DISABLED=True)
+        app.config.update(TESTING=True, LOGIN_DISABLED=False)
         with app.app_context():
             assert db.engine.url.database == ':memory:'
             try:
@@ -35,7 +35,16 @@ def client():
                     conn.execute(text('DROP TABLE IF EXISTS manufacturer_schema_state'))
                 for key in keys:
                     app.extensions.pop(key, None)
-                yield app.test_client()
+                # Classic mutation routes need a real role now, so sign in an admin.
+                admin = User(username='admin', email='admin@example.com', role='admin')
+                admin.set_password('test-password')
+                db.session.add(admin)
+                db.session.commit()
+                client = app.test_client()
+                with client.session_transaction() as session:
+                    session['_user_id'] = str(admin.id)
+                    session['_fresh'] = True
+                yield client
             finally:
                 db.session.remove()
                 db.drop_all()

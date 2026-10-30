@@ -311,15 +311,22 @@ def test_classic_new_stage_assignment_role_policy(client, role):
 
 
 @pytest.mark.parametrize('legacy', [False, True])
-def test_viewer_classic_unchanged_or_omitted_associations_allow_legacy_edits(client, legacy):
+def test_viewer_classic_edits_denied_engineer_legacy_edits_allowed(client, legacy):
     mids = [manufacturer(client, name=f'Maker {i}')['id'] for i in range(2)]
     part = part_tree()
     stage = post(client, 'stages', {'part_id': part.id, 'name': 'Stage', 'manufacturer_ids': mids})
+    # B2: classic mutations are admin/engineer only, so a viewer is refused.
     login(client, 'viewer')
     serialized = client.get('/api/data').json['nodes'][f'r{part.id}']
     serialized['notes'] = 'Viewer legacy edit'
     if legacy:
         serialized['stages'][0].pop('id')
+    assert client.put(f'/api/node/r{part.id}', json=serialized).status_code == 403
+    assert client.patch(f'/api/node/r{part.id}', json={'stages': [{'id': stage['id'], 'name': 'Renamed'}]}).status_code == 403
+    assert client.post('/api/node', json={'type': 'part', 'parent': f'a{part.assembly_id}',
+        'stages': [{'name': 'Unassigned', 'manufacturer_ids': []}]}).status_code == 403
+    # The same legacy payloads still work for an engineer and keep associations.
+    login(client, 'engineer')
     response = client.put(f'/api/node/r{part.id}', json=serialized)
     assert response.status_code == 200
     assert response.json['node']['notes'] == 'Viewer legacy edit'

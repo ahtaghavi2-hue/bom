@@ -17,8 +17,8 @@ pip install -r requirements.txt
 python app.py                 # starts http://localhost:5000 (creates/updates the schema on first run)
 ```
 
-- A **default admin is created on first run (`admin` / `admin123`)** — change this password immediately before any real use.
-- Set `SECRET_KEY` in the environment (or `.env`) before production use; see `config.py`.
+- On first run an **`admin` user is created with a random password that is printed once to the console** — copy it and change it after signing in.
+- `SECRET_KEY` **must** be set in the environment (or `.env`) when `FLASK_ENV=production`; startup fails without it. Development keeps a local fallback; see `config.py`.
 - Optional env vars: `DATABASE_URL`, `MAIL_*` (SMTP settings can also be configured in-app under `/settings`).
 
 ## Roles
@@ -29,12 +29,12 @@ python app.py                 # starts http://localhost:5000 (creates/updates th
 | `engineer` | ✔ (non-admin-only actions) | structural data changes |
 | `viewer` | ✖ (403) | read-only |
 
-> Known limitation (tracked in [bugs.md](bugs.md) as **B2**): classic `/api/*` routes currently enforce only `login_required`; role enforcement parity is the first phase of the security fix plan.
+Classic `/api/*` mutation routes now enforce the same roles as v2 through the shared `role_required` decorator in `permissions.py` (uploaded files also require a signed-in user).
 
 ## Tests
 
 ```bash
-python -m pytest test_bom_inventory.py test_manufacturers.py -q   # unit tests (in-memory SQLite)
+python -m pytest test_bom_inventory.py test_manufacturers.py test_phase0_security.py -q  # unit tests (in-memory SQLite)
 python -m pytest test_browser_startup.py -q                      # real browser regressions
 ```
 

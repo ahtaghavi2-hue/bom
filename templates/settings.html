@@ -62,8 +62,9 @@
                     <div class="setting-input"><input type="text" name="mail_username" value="{{ settings.mail_username }}" placeholder="your@email.com" id="smtp-user-input" onchange="autoSaveSetting('mail_username', this.value)"></div>
                 </div>
                 <div class="setting-row">
-                    <div><div class="setting-label" id="smtp-pass-label">رمز عبور</div><div class="setting-desc" id="smtp-pass-desc">کلمه عبور یا App Password</div></div>
-                    <div class="setting-input"><input type="password" name="mail_password" value="{{ settings.mail_password }}" placeholder="••••••••" id="smtp-pass-input" onchange="autoSaveSetting('mail_password', this.value)"></div>
+                    <div><div class="setting-label" id="smtp-pass-label">رمز عبور</div><div class="setting-desc" id="smtp-pass-desc">کلمه عبور یا App Password — برای حفظ رمز فعلی خالی بگذارید</div></div>
+                    <div class="setting-input"><input type="password" name="mail_password" value="" placeholder="•••••••• (برای حفظ رمز فعلی خالی بگذارید)" id="smtp-pass-input" onchange="autoSaveSetting('mail_password', this.value)"{% if not password_set %} data-needs-value="true"{% endif %}></div>
+                    <div style="font-size:11px;margin-top:2px;" id="smtp-pass-state">{% if password_set %}✓ رمز عبور قبلاً ذخیره شده است (در سورس صفحه نمایش داده نمی‌شود){% else %}رمز عبور هنوز ثبت نشده است{% endif %}</div>
                 </div>
                 <div class="setting-row">
                     <div><div class="setting-label" id="smtp-tls-label">استفاده از TLS</div><div class="setting-desc" id="smtp-tls-desc">برای Gmail و بیشتر سرورها روشن باشد</div></div>
